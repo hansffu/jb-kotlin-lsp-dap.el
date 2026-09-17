@@ -44,6 +44,9 @@ the server's =decompile= command. Attached source JARs and JDK source ZIPs use
 the same path. Source buffers retain the original =jar:= or =jrt:= URI and
 stay attached to their Kotlin workspace. Files are cached separately for each
 workspace in temporary directories, removed when this Emacs process exits.
+Normal major-mode hooks and syntax highlighting run in these buffers. Calls
+to =lsp= or =lsp-deferred= reuse the original workspace without asking to add
+the cache directory as a project, including after a major-mode restart.
 
 =jetbrains.navigateToLocation= commands and hover links (such as "Go to Super
 Method") are handled locally. When a help buffer has no workspace context and
@@ -181,7 +184,7 @@ initialized the LSP workspace, started the embedded adapter, and received a
 successful DAP =initialize= response.  A full Gradle/Maven application launch
 and breakpoint session has not yet been exercised.
 
-Dependency-navigation validation on 2026-09-17: all 21 tests passed with both
+Dependency-navigation validation on 2026-09-17: all 23 tests passed with both
 plist and hash-table LSP data; byte compilation passed with warnings treated
 as errors. Two generated offline projects passed in separate batch Emacs
 31.1 processes against Kotlin LSP =263.4702.0-EAP=, including binary/source JAR

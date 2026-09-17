@@ -28,6 +28,8 @@ be satisfied; the harness does not accept terms or change license settings.
 The test checks real Kotlin definition results into the JAR and JDK, read-only
 source buffers, original URI preservation, subsequent hover requests, xref
 conversion, source reopening, command links and explicit JRT decompilation.
+Java source checks also cover syntax highlighting, major-mode restart and
+=lsp-deferred= mode hooks, with any project-discovery attempt failing the test.
 For attached Java sources it follows a real server-generated "Go to Super
 Method" hover link. Binary-stub hover/definition results may be empty on the
 installed server; the test records these and compares direct requests before
@@ -38,7 +40,7 @@ kotlin-mode/kotlin-ts-mode indentation or syntax highlighting.
 * Validation record (2026-09-17)
 
 - Emacs 31.1; Kotlin LSP 263.4702.0-EAP; fixture library compiled for Java 17.
-- 21 unit tests passed with plist and hash-table LSP protocol objects.
+- 23 unit tests passed with plist and hash-table LSP protocol objects.
 - Package byte compilation passed with warnings treated as errors.
 - Binary-only and attached-source projects passed in separate batch Emacs/LSP
   processes. No emacsclient calls or connection to the user's Emacs server.

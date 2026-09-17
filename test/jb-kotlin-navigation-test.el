@@ -1,6 +1,7 @@
 ;;; jb-kotlin-navigation-test.el --- Source navigation tests -*- lexical-binding: t; -*-
 
 (require 'ert)
+(require 'cc-mode)
 (require 'jb-kotlin-lsp-dap)
 
 (defmacro jb-kotlin-test--sources (&rest body)
@@ -8,10 +9,14 @@
   (declare (indent 0))
   `(jb-kotlin-test--workspace
      (let ((jb-kotlin--source-caches (make-hash-table :test 'eq))
-           (jb-kotlin--source-directories nil))
+           (jb-kotlin--source-directories nil)
+           (source-open-count 0))
+       (setf (lsp--workspace-status workspace) 'initialized)
        (unwind-protect
            (cl-letf (((symbol-function 'lsp--open-in-workspace)
                       (lambda (w)
+                        (cl-incf source-open-count)
+                        (setq-local lsp-managed-mode t)
                         (should (eq workspace w))
                         (should (string-match-p "\\`\\(?:jar\\|jrt\\):" (lsp--buffer-uri))))))
              ,@body)
@@ -26,8 +31,7 @@
 
 (ert-deftest jb-kotlin-source-uri-caches-and-reopens-original-document ()
   (jb-kotlin-test--sources
-    (let ((calls 0) (uri "jar:///tmp/library%20one.jar!/demo/Greeter.class")
-          (java-mode-hook (list (lambda () (ert-fail "Do not run user mode hooks")))))
+    (let ((calls 0) (uri "jar:///tmp/library%20one.jar!/demo/Greeter.class"))
       (cl-letf (((symbol-function 'jb-kotlin--command)
                  (lambda (command &rest args)
                    (cl-incf calls)
@@ -48,6 +52,60 @@
           (should (equal file (lsp--uri-to-path uri)))
           (should (buffer-live-p (get-file-buffer file)))
           (should (= calls 1)))))))
+
+(ert-deftest jb-kotlin-source-finishes-mode-setup-without-project-discovery ()
+  (jb-kotlin-test--sources
+    (let* ((noninteractive nil)
+           (mode-hook-runs 0)
+           (java-mode-hook (list #'lsp-deferred
+                                 (lambda () (cl-incf mode-hook-runs))))
+           (after-change-major-mode-hook (list #'font-lock-mode))
+           (uri "jar:///library.jar!/demo/Greeter.class"))
+      (cl-letf (((symbol-function 'jb-kotlin--command)
+                 (lambda (&rest _)
+                   (jb-kotlin-test--object
+                    ("code" "package demo;\npublic class Greeter {}\n") ("language" "java"))))
+                ((symbol-function 'lsp--try-project-root-workspaces)
+                 (lambda (&rest _) (ert-fail "Library must never enter project discovery")))
+                ((symbol-function 'lsp--require-packages) #'ignore))
+        (with-current-buffer (get-file-buffer (jb-kotlin--source-uri uri))
+          (should (= mode-hook-runs 1))
+          (should font-lock-mode)
+          (should-not delayed-mode-hooks)
+          (font-lock-ensure)
+          (goto-char (point-min))
+          (search-forward "public")
+          (should (get-text-property (1- (point)) 'face))
+          ;; Explicit and deferred startup must keep the existing association.
+          (lsp)
+          (lsp-deferred)
+          (should (= source-open-count 1))
+          (should-not lsp--buffer-deferred)
+          ;; Restarting the major mode must retain library identity too.
+          (java-mode)
+          (should (= mode-hook-runs 2))
+          (should font-lock-mode)
+          (should buffer-read-only)
+          (should (equal uri (lsp--buffer-uri)))
+          (should (eq workspace (jb-kotlin--workspace)))
+          (should (= source-open-count 2))
+          ;; The permanent hook also restores identity without an LSP mode hook.
+          (let ((java-mode-hook nil)) (java-mode))
+          (should (= source-open-count 3))
+          (should (equal uri (lsp--buffer-uri)))
+          (setf (lsp--workspace-status workspace) 'shutdown)
+          (lsp)
+          (lsp-deferred)
+          (java-mode)
+          (should font-lock-mode)
+          (should buffer-read-only)
+          (should (equal uri (lsp--buffer-uri)))
+          (should (= source-open-count 3)))))))
+
+(ert-deftest jb-kotlin-source-lsp-start-preserves-ordinary-buffers ()
+  (with-temp-buffer
+    (should (equal (jb-kotlin--source-lsp-start #'list 'argument t)
+                   '(argument t)))))
 
 (ert-deftest jb-kotlin-source-cache-isolates-workspaces-and-uris ()
   (jb-kotlin-test--sources

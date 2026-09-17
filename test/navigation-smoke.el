@@ -8,6 +8,7 @@
 (require 'lsp-diagnostics)
 (require 'lsp-completion)
 (require 'ert)
+(require 'cc-mode)
 
 (defvar jb-kotlin-smoke-root
   (file-name-as-directory (or (getenv "JB_KOTLIN_TEST_ROOT")
@@ -80,6 +81,11 @@
             (accept-process-output nil 0.2)))
         (setq workspace (jb-kotlin--workspace))
         (should (eq 'initialized (lsp--workspace-status workspace)))
+        ;; Mirror user mode hooks and reject any attempt to enroll cache files.
+        (add-hook 'java-mode-hook #'lsp-deferred)
+        (let ((noninteractive nil)) (global-font-lock-mode 1))
+        (advice-add 'lsp--try-project-root-workspaces :before
+                    (lambda (&rest _) (ert-fail "Dependency entered project discovery")))
         (princ (format "Emacs PID=%d; LSP PID=%d; project=%s\n"
                        (emacs-pid) (process-id (lsp--workspace-proc workspace)) project))
         (princ (format "JDK target ready: %S\n" (jb-kotlin-smoke-definition "ArrayList")))
@@ -97,7 +103,9 @@
                       (lsp-request "textDocument/definition"
                                    (list :textDocument (list :uri uri)
                                          :position (lsp--cur-position)))))))
-               (path (lsp--uri-to-path uri)))
+               ;; Batch Emacs normally disables font-lock.  Exercise the
+               ;; interactive mode setup while keeping this process isolated.
+               (path (let ((noninteractive nil)) (lsp--uri-to-path uri))))
           (princ (format "Library definition before didOpen: %S\n" before-open))
           (princ (format "Library definition: %s\n" uri))
           (should (string-prefix-p "jar:" uri))
@@ -105,6 +113,17 @@
           ;; Exercise the same xref conversion used by M-., not just our handler.
           (should (lsp--locations-to-xref-items (vector location)))
           (with-current-buffer (get-file-buffer path)
+            (should-not delayed-mode-hooks)
+            (should-not lsp--buffer-deferred)
+            (should font-lock-mode)
+            (lsp)
+            ;; Exercise a real didClose/didOpen across a major-mode restart.
+            (let ((noninteractive nil)) (java-mode))
+            (should font-lock-mode)
+            (font-lock-ensure)
+            (goto-char (point-min))
+            (search-forward "class")
+            (should (get-text-property (1- (point)) 'face))
             (should buffer-read-only)
             (should (equal uri (lsp--buffer-uri)))
             (should (eq workspace (jb-kotlin--workspace)))

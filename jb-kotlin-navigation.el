@@ -16,6 +16,11 @@
   "Workspace to URI/source metadata tables, private to this Emacs session.")
 (defvar jb-kotlin--source-directories nil
   "Temporary source directories created by this Emacs session.")
+(defvar-local jb-kotlin--source-context nil
+  "Original URI, language and workspace for a dependency source buffer.")
+(put 'jb-kotlin--source-context 'permanent-local t)
+(defvar jb-kotlin--source-attaching nil
+  "Non-nil while attaching a dependency buffer to its workspace.")
 
 (defun jb-kotlin--navigation-workspace ()
   "Find a Kotlin workspace, asking when a help buffer has ambiguous context."
@@ -46,6 +51,45 @@
                     (t #'prog-mode)))
     (_ #'prog-mode)))
 
+(defun jb-kotlin--attach-source ()
+  "Restore dependency buffer identity and attach to its original workspace."
+  (when (and jb-kotlin--source-context (not jb-kotlin--source-attaching))
+    (pcase-let ((`(,uri ,language ,workspace) jb-kotlin--source-context)
+                (jb-kotlin--source-attaching t))
+      (setq-local lsp-buffer-uri uri)
+      (setq-local buffer-read-only t)
+      (setq-local buffer-auto-save-file-name nil)
+      ;; Mode changes clear the LSP association, but must not make the cache
+      ;; directory a new project.  A stopped workspace stays disconnected.
+      (when (and (eq 'initialized (lsp--workspace-status workspace))
+                 (not (and lsp-mode lsp-managed-mode
+                           (memq workspace lsp--buffer-workspaces))))
+        (setq-local lsp-language-id-configuration
+                    (cons (cons major-mode language) lsp-language-id-configuration))
+        (setq-local lsp--buffer-workspaces (list workspace))
+        (when (fboundp 'lsp--set-position-encoding)
+          (lsp--set-position-encoding
+           (or (lsp-get (lsp--workspace-server-capabilities workspace)
+                        :positionEncoding)
+               "utf-16")))
+        (lsp-mode 1)
+        (lsp--open-in-workspace workspace)))))
+
+(put 'jb-kotlin--attach-source 'permanent-local-hook t)
+
+(defun jb-kotlin--source-lsp-start (original &rest args)
+  "Reuse dependency workspaces instead of calling ORIGINAL with ARGS.
+Ordinary buffers retain the normal `lsp' and `lsp-deferred' behavior."
+  (if (not jb-kotlin--source-context)
+      (apply original args)
+    (unless (eq 'initialized (lsp--workspace-status
+                             (nth 2 jb-kotlin--source-context)))
+      (message "Dependency workspace stopped; reopen the dependency from your project"))
+    (jb-kotlin--attach-source)))
+
+(advice-add 'lsp :around #'jb-kotlin--source-lsp-start)
+(advice-add 'lsp-deferred :around #'jb-kotlin--source-lsp-start)
+
 (defun jb-kotlin--source-buffer (file uri language workspace)
   "Visit cached FILE as read-only URI in LANGUAGE, attached to WORKSPACE."
   (or (get-file-buffer file)
@@ -53,23 +97,15 @@
         (condition-case err
             (with-current-buffer buffer
               (insert-file-contents file)
-              ;; Do not run user major-mode hooks that could start another server.
+              ;; Establish library identity before user hooks can call LSP.
               (delay-mode-hooks (funcall (jb-kotlin--source-mode language)))
               (set-visited-file-name file t)
-              (setq-local lsp-buffer-uri uri)
-              (setq-local lsp-language-id-configuration
-                          (cons (cons major-mode language) lsp-language-id-configuration))
-              (setq-local lsp--buffer-workspaces (list workspace))
-              (when (fboundp 'lsp--set-position-encoding)
-                (lsp--set-position-encoding
-                 (or (lsp-get (lsp--workspace-server-capabilities workspace)
-                              :positionEncoding)
-                     "utf-16")))
-              (setq-local buffer-read-only t)
-              (setq-local buffer-auto-save-file-name nil)
+              (setq jb-kotlin--source-context (list uri language workspace))
+              (add-hook 'after-change-major-mode-hook #'jb-kotlin--attach-source nil t)
               (set-buffer-modified-p nil)
-              (lsp-mode 1)
-              (lsp--open-in-workspace workspace)
+              (jb-kotlin--attach-source)
+              ;; Finish font-lock, syntax setup and the user's normal mode hooks.
+              (run-mode-hooks)
               buffer)
           (error (kill-buffer buffer)
                  (signal (car err) (cdr err)))))))
