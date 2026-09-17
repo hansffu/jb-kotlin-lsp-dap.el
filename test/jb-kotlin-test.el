@@ -192,5 +192,7 @@
                         (file-name-directory (or load-file-name buffer-file-name))) nil t)
 (load (expand-file-name "jb-kotlin-reload-test.el"
                         (file-name-directory (or load-file-name buffer-file-name))) nil t)
+(load (expand-file-name "jb-kotlin-import-test.el"
+                        (file-name-directory (or load-file-name buffer-file-name))) nil t)
 
 ;;; jb-kotlin-test.el ends here

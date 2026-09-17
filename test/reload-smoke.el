@@ -123,4 +123,7 @@
           (when (process-live-p (lsp--workspace-proc workspace))
             (delete-process (lsp--workspace-proc workspace))))))))
 
-(ert-run-tests-batch-and-exit 'jb-kotlin-live-build-reload)
+(defvar jb-reload-smoke-no-run nil
+  "Non-nil when another smoke test reuses this isolated setup.")
+(unless jb-reload-smoke-no-run
+  (ert-run-tests-batch-and-exit 'jb-kotlin-live-build-reload))

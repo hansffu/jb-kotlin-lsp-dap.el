@@ -86,3 +86,25 @@ Validated on 2026-09-17 with Emacs 31.1, Kotlin LSP 263.4702.0-EAP and Gradle
 9.3.1: both live fixtures passed; all 34 unit tests passed with plist and
 hash-table protocol data; package byte compilation passed with warnings
 treated as errors.
+
+* Import status and recovery integration test
+
+Generate a fresh fixture using =create-reload-projects.py= as above, then run:
+
+#+begin_src sh
+JB_KOTLIN_TEST_ROOT=/tmp/jb-import-test \
+  emacs --batch -L . -l test/import-smoke.el
+#+end_src
+
+This uses the same isolated Emacs/LSP/Gradle setup and local-socket requirement
+as the reload test. It adds a minimal POM alongside Gradle to trigger the real
+build-tool chooser, dismisses it, and verifies that retry from the status view
+reopens it. After choosing Gradle it saves a deliberately failing build script,
+checks the failure and read-only log, fixes the script and retries from the log.
+It verifies that the original workspace's settings survive the retry and that
+the mode-line indicator recovers to Ready. No Maven import is performed.
+
+Validated on 2026-09-18 with Emacs 31.1, Kotlin LSP 263.4702.0-EAP and Gradle
+9.3.1. The live recovery test and all 45 unit tests passed; the latter cover
+independent workspaces, JSON false values, partial folder failures, stale
+initial snapshots, unsupported status queries and disconnected log views.

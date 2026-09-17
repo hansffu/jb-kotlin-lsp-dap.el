@@ -34,6 +34,10 @@ Do not include workspace.json or other server-watched import settings.")
 
 (defvar jb-kotlin--reload-states (make-hash-table :test 'eq)
   "Pending reload state keyed by workspace.")
+(defvar jb-kotlin--reload-start-functions nil
+  "Functions called with workspace and initialization options before reload.")
+(defvar jb-kotlin--reload-error-functions nil
+  "Functions called with workspace and error after a failed reload request.")
 
 (defun jb-kotlin--build-file-p (file)
   "Whether FILE is a supported local build descriptor."
@@ -77,9 +81,12 @@ Do not include workspace.json or other server-watched import settings.")
   (when (eq state (gethash workspace jb-kotlin--reload-states))
     (setf (jb-kotlin--reload-state-busy state) nil)
     (if error
-        (message "Kotlin reload failed for %s: %s; retry with M-x jb-kotlin-reload-workspace"
-                 (lsp--workspace-root workspace) error)
-      (message "Kotlin workspace reloaded: %s" (lsp--workspace-root workspace)))
+        (progn
+          (run-hook-with-args 'jb-kotlin--reload-error-functions workspace error)
+          (message "Kotlin reload failed for %s: %s; retry with M-x jb-kotlin-reload-workspace"
+                   (lsp--workspace-root workspace) error)))
+    ;; A successful response does not imply a successful build import. Import
+    ;; notifications own the user-visible outcome.
     ;; Only saves made during the request warrant another import, not errors.
     (when (jb-kotlin--reload-state-pending state)
       (jb-kotlin--reload-schedule workspace state))))
@@ -108,6 +115,8 @@ Do not include workspace.json or other server-watched import settings.")
                          (eq 'initialized (lsp--workspace-status workspace)))
                 (setq submitted t)
                 (setf (jb-kotlin--reload-state-pending state) nil)
+                (run-hook-with-args 'jb-kotlin--reload-start-functions workspace
+                                    (jb-kotlin--reload-state-options state))
                 (with-lsp-workspace workspace
                   (condition-case err
                       (lsp-request-async

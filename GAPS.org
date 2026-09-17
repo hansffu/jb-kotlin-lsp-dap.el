@@ -14,7 +14,7 @@ for tests. Keep server system/config/log paths and lsp-session-file isolated.
 |----------+------------------------------+--------------------------------------+-------------|
 |        1 | Dependency-source navigation | feature/dependency-source-navigation | Implemented |
 |        2 | Build-file reimport          | feature/build-file-reimport          | Implemented |
-|        3 | Import status and recovery   | feature/import-status                | Planned     |
+|        3 | Import status and recovery   | feature/import-status                | Implemented |
 |        4 | IntelliJ refactoring UI      | feature/refactoring-ui               | Planned     |
 
 * 1. Dependency-source navigation
@@ -58,12 +58,19 @@ Upstream: [[https://github.com/Kotlin/kotlin-lsp/blob/a18d1716202a742719acf30354
 
 * 3. Import status and recovery
 
-Currently =intellij/workspaceImportStatus= is ignored and import log success/
-failure flags are dropped. Display import failures and blocked build-tool
-selection, expose logs and retry/reload actions, and keep state per workspace.
-Verify a failed import, a successful retry and multiple simultaneous projects.
-The installed 263.4702.0 server emits =intellij/workspaceImportState=; check
-compatibility with that notification as well as the pinned upstream protocol.
+Implemented with a per-workspace mode-line indicator, read-only logs, a status
+view and retry actions. Import log outcome flags and =workspaceImportState=
+folder results track progress/failure/success. =workspaceImportStatus= tracks
+blocked folders and dismissed build-tool choices. Optional initial status
+queries cannot overwrite newer notifications. Reload responses never clear
+import failures; retries from logs preserve the workspace's import settings.
+
+Validated on 2026-09-18: 45 unit tests passed with plist and hash-table data,
+including two independent workspaces, mixed folder outcomes, disconnects and
+stale snapshots. A separate Emacs/LSP process exercised a real ambiguous
+Gradle/Maven chooser (dismiss, reopen and select Gradle), a deliberately broken
+Gradle build, then successful retry from its log. Both status notification
+types are emitted by the installed 263.4702.0 server and handled independently.
 
 Upstream: [[https://github.com/Kotlin/kotlin-lsp/blob/a18d1716202a742719acf30354dc01cc27b9b5e8/vscode-extension-core/src/lspClient.ts][lspClient.ts]].
 

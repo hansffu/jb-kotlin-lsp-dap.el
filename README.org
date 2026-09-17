@@ -109,7 +109,22 @@ a buffer attached to that workspace, including when using a saved template.
 - =jb-kotlin-build-tools=: hash table mapping workspace URIs to build tools.
 - =jb-kotlin-request-timeout=: launch/build resolution timeout in seconds.
 - =M-x jb-kotlin-reload-workspace=: reimport with the current settings.
-- =*Kotlin import*=: server import log messages.
+- =M-x jb-kotlin-import-status=: workspace status, folder results and recovery actions.
+- =M-x jb-kotlin-show-import-log=: the current workspace's read-only import log.
+- =M-x jb-kotlin-retry-import=: retry the import, reopening build-tool selection if blocked.
+
+Kotlin buffers show import progress, readiness, failure or a blocked build-tool
+choice in the mode line. Each workspace has its own status and log. Failed
+imports display their log without selecting its window; set
+=jb-kotlin-show-import-log-on-error= to =nil= to disable this automatic display.
+In log and status buffers, press =r= to retry, =l= for the log, or =g= for status.
+Retrying from these buffers preserves the workspace's last import settings;
+use =jb-kotlin-reload-workspace= in a project buffer to apply changed settings.
+
+Both =intellij/importLog= outcome flags and =intellij/workspaceImportState=
+folder results are honored. =intellij/workspaceImportStatus= supplies blocked
+build-tool choices. A successful reload response alone does not clear a build
+failure. Older servers without the status-query method still report log events.
 
 Saving =pom.xml=, =build.gradle[.kts]= or =settings.gradle[.kts]= automatically
 reimports the owning Kotlin workspace. Bazel descriptors (=BUILD=,
@@ -185,7 +200,7 @@ With lsp-mode and dap-mode on the batch Emacs load path:
 #+begin_src sh
 emacs --batch -L . -l test/jb-kotlin-test.el -f ert-run-tests-batch-and-exit
 emacs --batch -L . --eval '(setq byte-compile-error-on-warn t)' \
-  -f batch-byte-compile jb-kotlin-navigation.el jb-kotlin-reload.el jb-kotlin-lsp-dap.el
+  -f batch-byte-compile jb-kotlin-navigation.el jb-kotlin-reload.el jb-kotlin-import.el jb-kotlin-lsp-dap.el
 #+end_src
 
 The same checks are available as =make test= and =make compile=.  Use
@@ -213,3 +228,9 @@ data formats, and byte compilation passed with warnings treated as errors.
 Separate Emacs/LSP processes verified that saving Gradle Groovy and Kotlin DSL
 build files adds/removes a local dependency without restarting LSP. Maven and
 Bazel descriptor routing is unit-tested; live imports remain unverified.
+
+Import-status validation on 2026-09-18: all 45 unit tests passed with both
+LSP data formats; byte compilation passed with warnings treated as errors.
+A separate Emacs/LSP process verified dismissed build-tool selection,
+reopening the chooser, a real Gradle import failure and successful retry from
+the workspace log. Independent simultaneous workspace state is unit-tested.

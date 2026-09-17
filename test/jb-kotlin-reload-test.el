@@ -13,6 +13,8 @@
           (other (make-lsp--workspace :root nested :status 'initialized
                                       :client (gethash 'jb-kotlin lsp-clients)))
           (jb-kotlin--reload-states (make-hash-table :test 'eq))
+          (jb-kotlin--import-states (make-hash-table :test 'eq))
+          (jb-kotlin-show-import-log-on-error nil)
           (jb-kotlin-reload-on-save 'always)
           requests timers cancelled)
      (make-directory nested)
@@ -32,6 +34,11 @@
                                   :success callback :error (plist-get keywords :error-handler))
                             requests))))
            ,@body)
+       (maphash (lambda (_ state)
+                  (dolist (buffer (list (jb-kotlin--import-state-log state)
+                                       (jb-kotlin--import-state-view state)))
+                    (when (buffer-live-p buffer) (kill-buffer buffer))))
+                jb-kotlin--import-states)
        (delete-directory root t))))
 
 (defun jb-kotlin-test--save-build (root file)

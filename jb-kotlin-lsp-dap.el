@@ -230,12 +230,7 @@ Output goes to a compilation buffer.  C-g cancels the build and launch."
                    :hostName host :port port)))
 
 (require 'jb-kotlin-reload)
-
-(defun jb-kotlin--import-log (_workspace params)
-  "Record project import PARAMS from WORKSPACE."
-  (with-current-buffer (get-buffer-create "*Kotlin import*")
-    (goto-char (point-max))
-    (insert (or (lsp-get params :message) "") "\n")))
+(require 'jb-kotlin-import)
 
 (lsp-register-client
  (make-lsp-client
@@ -243,6 +238,7 @@ Output goes to a compilation buffer.  C-g cancels the build and launch."
   :major-modes '(kotlin-mode kotlin-ts-mode)
   :priority 1 :server-id 'jb-kotlin
   :initialization-options #'jb-kotlin--initialization-options
+  :initialized-fn #'jb-kotlin--import-initialized
   :uri-handlers (lsp-ht ("jar" #'jb-kotlin--source-uri)
                         ("jrt" #'jb-kotlin--source-uri)
                         ("command" #'jb-kotlin--command-uri))
@@ -250,7 +246,8 @@ Output goes to a compilation buffer.  C-g cancels the build and launch."
                           ("jetbrains.navigateToLocation" #'jb-kotlin--navigate-action))
   :notification-handlers
   (lsp-ht ("intellij/importLog" #'jb-kotlin--import-log)
-          ("intellij/workspaceImportStatus" #'ignore))))
+          ("intellij/workspaceImportStatus" #'jb-kotlin--import-status-notification)
+          ("intellij/workspaceImportState" #'jb-kotlin--import-state-notification))))
 
 (dolist (type '("intellij_jvm" "intellij_gradle" "intellij_debugger"))
   (dap-register-debug-provider type #'jb-kotlin--debug-config))
