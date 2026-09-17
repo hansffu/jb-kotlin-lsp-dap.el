@@ -15,7 +15,7 @@ for tests. Keep server system/config/log paths and lsp-session-file isolated.
 |        1 | Dependency-source navigation | feature/dependency-source-navigation | Implemented |
 |        2 | Build-file reimport          | feature/build-file-reimport          | Implemented |
 |        3 | Import status and recovery   | feature/import-status                | Implemented |
-|        4 | IntelliJ refactoring UI      | feature/refactoring-ui               | Planned     |
+|        4 | IntelliJ refactoring UI      | feature/refactoring-ui               | Implemented |
 
 * 1. Dependency-source navigation
 
@@ -76,11 +76,20 @@ Upstream: [[https://github.com/Kotlin/kotlin-lsp/blob/a18d1716202a742719acf30354
 
 * 4. IntelliJ refactoring UI
 
-Implement =intellij/copyToClipboard=, =intellij/runEditorCommand=,
-=intellij/chooseAction= and =intellij/showConflicts= before changing
-=intellijExtensions= to true. Map only supported editor commands. Conflict
-dialogs must cancel on dismissal, cancellation, disconnect or intervening edits.
-Verify apply/cancel behavior and nested choices without applying stale edits.
+Implemented clipboard notifications, queued action menus (including nested
+choices), an allowlist of editor commands and asynchronous conflict reviews.
+=intellijExtensions= is now true. Conflict reviews cancel on dismissal,
+cancellation, disconnect or edits, and recheck file state before continuing.
+Opening a conflict location preserves the review.
+
+Client tests cover asynchronous request dispatch, exactly-once responses,
+request-ID/workspace cancellation, hidden/killed/undisplayable reviews, buffer
+and disk edits, source reveal, nested choices and editor-command targeting.
+All 59 unit tests pass with plist and hash-table protocol data. Live clipboard
+and rename notifications pass using generated JSON projects in separate
+Emacs/LSP processes.
+The installed 263.4702.0-EAP predates ShowConflicts: its live conflict test is
+explicitly skipped; real-server conflict apply/cancel remains unverified.
 
 Upstream: [[https://github.com/Kotlin/kotlin-lsp/blob/a18d1716202a742719acf30354dc01cc27b9b5e8/vscode-extension-core/src/intellijExtensions.ts][intellijExtensions.ts]].
 

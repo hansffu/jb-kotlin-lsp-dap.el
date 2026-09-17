@@ -17,6 +17,7 @@
 (require 'lsp-mode)
 (require 'dap-mode)
 (require 'jb-kotlin-navigation)
+(require 'jb-kotlin-refactor)
 
 (defgroup jb-kotlin nil
   "JetBrains Kotlin language server and debugger."
@@ -51,7 +52,7 @@ Gradle launches always build through the debug adapter."
 (defun jb-kotlin--initialization-options ()
   "Return only extension flags that this client implements."
   (append (list :lazyIntentions t :runMainCodeLens t
-                :intellijExtensions :json-false
+                :intellijExtensions t
                 :projects jb-kotlin-projects :buildTools jb-kotlin-build-tools)
           (when jb-kotlin-default-sdk
             (list :defaultSdk (expand-file-name jb-kotlin-default-sdk)))))
@@ -239,6 +240,7 @@ Output goes to a compilation buffer.  C-g cancels the build and launch."
   :priority 1 :server-id 'jb-kotlin
   :initialization-options #'jb-kotlin--initialization-options
   :initialized-fn #'jb-kotlin--import-initialized
+  :async-request-handlers (lsp-ht ("intellij/showConflicts" #'jb-kotlin--show-conflicts))
   :uri-handlers (lsp-ht ("jar" #'jb-kotlin--source-uri)
                         ("jrt" #'jb-kotlin--source-uri)
                         ("command" #'jb-kotlin--command-uri))
@@ -246,6 +248,10 @@ Output goes to a compilation buffer.  C-g cancels the build and launch."
                           ("jetbrains.navigateToLocation" #'jb-kotlin--navigate-action))
   :notification-handlers
   (lsp-ht ("intellij/importLog" #'jb-kotlin--import-log)
+          ("intellij/copyToClipboard" #'jb-kotlin--copy-to-clipboard)
+          ("intellij/runEditorCommand" #'jb-kotlin--run-editor-command)
+          ("intellij/chooseAction" #'jb-kotlin--choose-action)
+          ("$/cancelRequest" #'jb-kotlin--conflict-cancel-request)
           ("intellij/workspaceImportStatus" #'jb-kotlin--import-status-notification)
           ("intellij/workspaceImportState" #'jb-kotlin--import-state-notification))))
 

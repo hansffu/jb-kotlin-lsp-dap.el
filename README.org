@@ -157,19 +157,29 @@ entire capability set.  The additional feature switches below are fields of
 |----------------------+--------------+-----------------------------------------------------------|
 | =lazyIntentions=     | true         | Execute a quick fix only when its command is selected      |
 | =runMainCodeLens=    | true         | Handle =intellij.jvm.runMain= on the client                 |
-| =intellijExtensions= | false        | Custom IntelliJ editor UI notifications/refactoring dialogs |
+| =intellijExtensions= | true         | Custom IntelliJ editor UI notifications/refactoring dialogs |
 | =defaultSdk=         | if set       | JDK used for symbol resolution                             |
 | =projects=           | vector       | Explicit project import entries                            |
 | =buildTools=         | object       | Workspace URI to build tool mapping                        |
 
-The =intellijExtensions= opt-in permits =intellij/copyToClipboard=,
-=intellij/runEditorCommand=, =intellij/chooseAction= and
-=intellij/showConflicts=.  Those editor interactions are not implemented, so
-the package explicitly sends false.  Standard LSP code actions and lazy
-intentions remain available. See [[file:GAPS.org][the implementation queue]] for prioritized
-client gaps and validation plans. Remote/TRAMP server operation and Windows
-build wrappers are not supported. Test explorer parity with the pinned VS Code
-extension has not been established.
+The =intellijExtensions= opt-in enables server-requested clipboard copies,
+action menus, rename, completion and parameter hints. Actions use the normal
+=lsp-execute-code-action= entry point; nested choices appear in the minibuffer.
+Only the three supported editor commands are mapped to Emacs commands.
+
+When a refactoring reports conflicts, a read-only review buffer shows messages
+and clickable source locations. Select Continue (or press =c= in that buffer)
+to proceed, or Cancel (=q= or =C-g=) to stop. Closing or hiding the review,
+editing any file buffer, server cancellation or disconnect cancels the pending
+refactoring. Continuing rechecks buffer contents and conflict files on disk.
+Opening a source location keeps the review available.
+
+Server support varies: the installed 263.4702.0-EAP supports clipboard and
+rename notifications, but predates =intellij/showConflicts=. The client handles
+that protocol for newer servers; see [[file:test/README.org][validation details]].
+See [[file:GAPS.org][the implementation queue]] for remaining gaps. Remote/TRAMP server
+operation and Windows build wrappers are not supported. Test explorer parity
+with the pinned VS Code extension has not been established.
 
 Protocol sources (pinned for reproducibility):
 

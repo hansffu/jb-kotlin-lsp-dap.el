@@ -196,4 +196,7 @@
         (when (process-live-p (lsp--workspace-proc workspace))
           (delete-process (lsp--workspace-proc workspace))))))))
 
-(ert-run-tests-batch-and-exit 'jb-kotlin-live-navigation)
+(defvar jb-kotlin-navigation-smoke-no-run nil
+  "Non-nil when another smoke test reuses the isolated navigation setup.")
+(unless jb-kotlin-navigation-smoke-no-run
+  (ert-run-tests-batch-and-exit 'jb-kotlin-live-navigation))

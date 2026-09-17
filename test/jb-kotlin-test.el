@@ -26,7 +26,7 @@
          (json (json-parse-string (json-encode options))))
     (should (eq t (gethash "runMainCodeLens" json)))
     (should (eq t (gethash "lazyIntentions" json)))
-    (should (eq :false (gethash "intellijExtensions" json)))
+    (should (eq t (gethash "intellijExtensions" json)))
     (should (equal [] (gethash "projects" json)))
     (should (hash-table-p (gethash "buildTools" json)))
     (should (equal "/tmp/jdk" (gethash "defaultSdk" json)))))
@@ -193,6 +193,8 @@
 (load (expand-file-name "jb-kotlin-reload-test.el"
                         (file-name-directory (or load-file-name buffer-file-name))) nil t)
 (load (expand-file-name "jb-kotlin-import-test.el"
+                        (file-name-directory (or load-file-name buffer-file-name))) nil t)
+(load (expand-file-name "jb-kotlin-refactor-test.el"
                         (file-name-directory (or load-file-name buffer-file-name))) nil t)
 
 ;;; jb-kotlin-test.el ends here

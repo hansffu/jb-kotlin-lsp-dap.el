@@ -108,3 +108,31 @@ Validated on 2026-09-18 with Emacs 31.1, Kotlin LSP 263.4702.0-EAP and Gradle
 9.3.1. The live recovery test and all 45 unit tests passed; the latter cover
 independent workspaces, JSON false values, partial folder failures, stale
 initial snapshots, unsupported status queries and disconnected log views.
+
+* Refactoring UI integration test
+
+#+begin_src sh
+python3 test/create-navigation-projects.py /tmp/jb-refactoring-ui-test
+JB_KOTLIN_TEST_ROOT=/tmp/jb-refactoring-ui-test \
+  emacs --batch -L . -l test/refactor-smoke.el
+#+end_src
+
+This reuses the isolated JSON-project setup, with private server state and a
+fresh Emacs process. It invokes the real server's =applyModCommand= dispatcher
+to generate clipboard and rename notifications. The local rename command is
+intercepted to avoid prompting in batch mode; the real navigation/notification
+path must reach it. Clipboard testing uses a private kill ring with system
+clipboard writes disabled.
+
+A second test exercises server-held edits after Continue, Cancel and intervening
+edits. It explicitly skips if the server lacks the ShowConflicts serializer,
+as installed 263.4702.0-EAP does. It remains available for newer servers. These
+are protocol fixtures, not coverage of every Kotlin refactoring. Unit tests
+cover conflict UI lifecycle, asynchronous dispatch, cancellation, stale edits,
+location reveal, nested choices and editor-command targeting.
+
+Validated on 2026-09-18 with Emacs 31.1 and Kotlin LSP 263.4702.0-EAP:
+59 unit tests passed with both plist and hash-table protocol data; byte
+compilation passed with warnings treated as errors. Live clipboard and rename
+notifications passed. The live conflict test was skipped for missing server
+support; conflict acceptance/cancellation is verified only in client tests.
