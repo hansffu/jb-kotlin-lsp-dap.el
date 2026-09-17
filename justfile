@@ -2,4 +2,4 @@ set positional-arguments
 
 # Start a separate Emacs with this checkout loaded. Extra arguments go to Emacs.
 run *args:
-    @"${EMACS:-emacs}" --no-init-file --no-splash -L . -l dev/init.el "$@"
+    @"${EMACS:-emacs}" -L . --eval "(require 'jb-kotlin-lsp-dap)" "$@"

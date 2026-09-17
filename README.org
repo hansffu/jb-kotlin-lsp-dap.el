@@ -147,13 +147,8 @@ reported rather than falling back to obsolete launch-resolution protocols.
 
 * Development
 
-Run =just run= from this checkout to open a separate Emacs with the library
-loaded and Kotlin LSP/DAP hooks configured. It skips your personal init and
-uses installed packages; install the dependencies listed under Setup first.
-The language server starts when you open a Kotlin file. Each launch uses
-private LSP/debugger state and Kotlin server cache/config/log directories,
-whose location is shown in =*scratch*= and =*Messages*=. These directories are
-retained after exit for troubleshooting. Your running Emacs server is not used.
+Run =just run= from this checkout to start Emacs with your normal configuration
+and require =jb-kotlin-lsp-dap= from this directory.
 
 #+begin_src sh
 just run
@@ -162,8 +157,7 @@ just run -nw
 EMACS=/path/to/emacs just run
 #+end_src
 
-Extra arguments are passed to Emacs. The launcher prefers =kotlin-ts-mode=
-when its grammar is available, falling back to =kotlin-mode=.
+Extra arguments are passed to Emacs.
 
 With lsp-mode and dap-mode on the batch Emacs load path:
 
