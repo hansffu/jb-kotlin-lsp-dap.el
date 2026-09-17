@@ -88,7 +88,10 @@ and disk edits, source reveal, nested choices and editor-command targeting.
 All 59 unit tests pass with plist and hash-table protocol data. Live clipboard
 and rename notifications pass using generated JSON projects in separate
 Emacs/LSP processes.
-The installed 263.4702.0-EAP predates ShowConflicts: its live conflict test is
+An actual =Replace 'when' with 'if'= code action also passes end to end:
+it introduces a local variable, requests rename, and updates the declaration
+and references. Editor commands wait for idle to avoid nested synchronous
+lsp-mode requests. The installed 263.4702.0-EAP predates ShowConflicts: its live conflict test is
 explicitly skipped; real-server conflict apply/cancel remains unverified.
 
 Upstream: [[https://github.com/Kotlin/kotlin-lsp/blob/a18d1716202a742719acf30354dc01cc27b9b5e8/vscode-extension-core/src/intellijExtensions.ts][intellijExtensions.ts]].

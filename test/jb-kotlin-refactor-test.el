@@ -16,7 +16,10 @@
           (save-window-excursion
             (switch-to-buffer source)
             (setq-local lsp--buffer-workspaces (list workspace))
-            (cl-letf (((symbol-function 'run-at-time)
+            (cl-letf (((symbol-function 'run-with-idle-timer)
+                       (lambda (_time _repeat callback &rest args)
+                         (let ((timer (cons callback args))) (push timer timers) timer)))
+                      ((symbol-function 'run-at-time)
                        (lambda (_time _repeat callback &rest args)
                          (let ((timer (cons callback args))) (push timer timers) timer))))
               ,@body))

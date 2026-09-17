@@ -61,7 +61,10 @@
          (uri (lsp-get params :uri)))
     (if (or (not command) (> (length (lsp-get params :arguments)) 0))
         (message "Kotlin: unsupported editor command %s" (lsp-get params :command))
-      (run-at-time
+      ;; Interactive commands may issue synchronous LSP requests.  Wait until
+      ;; the initiating code action has returned: nested lsp-request calls use
+      ;; the same cancellation token and can strand the outer request.
+      (run-with-idle-timer
        0 nil
        (lambda ()
          (when (and (jb-kotlin--refactor-live-p workspace) (buffer-live-p buffer)

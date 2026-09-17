@@ -167,6 +167,30 @@ action menus, rename, completion and parameter hints. Actions use the normal
 =lsp-execute-code-action= entry point; nested choices appear in the minibuffer.
 Only the three supported editor commands are mapped to Emacs commands.
 
+To try a verified rename interaction, put this in a Kotlin project:
+
+#+begin_src kotlin
+fun demo() {
+    when (System.currentTimeMillis()) {
+        0L -> System.out.println("zero")
+        1L -> System.out.println("one")
+        else -> System.out.println("other")
+    }
+}
+#+end_src
+
+Place point on =when=, run =M-x lsp-execute-code-action= and select
+=Replace 'when' with 'if'=. The server introduces a local variable and asks
+Emacs to rename it. This example needs =when= as a standalone statement;
+=return when (...)= and expression-bodied functions follow a different path.
+Ordinary symbol rename is =M-x lsp-rename= and need not appear as a code action.
+
+This branch already enables =intellijExtensions=. Start a fresh =just run=
+instance after updating the library. Existing LSP connections keep the flags
+sent at initialization; after loading updated Lisp, =lsp-workspace-restart=
+renegotiates them. Editor prompts are deferred until the initiating action
+returns, avoiding nested synchronous requests in lsp-mode.
+
 When a refactoring reports conflicts, a read-only review buffer shows messages
 and clickable source locations. Select Continue (or press =c= in that buffer)
 to proceed, or Cancel (=q= or =C-g=) to stop. Closing or hiding the review,

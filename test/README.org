@@ -136,3 +136,24 @@ Validated on 2026-09-18 with Emacs 31.1 and Kotlin LSP 263.4702.0-EAP:
 compilation passed with warnings treated as errors. Live clipboard and rename
 notifications passed. The live conflict test was skipped for missing server
 support; conflict acceptance/cancellation is verified only in client tests.
+
+* Real code action followed by rename
+
+Using the generated navigation fixture from above:
+
+#+begin_src sh
+JB_KOTLIN_TEST_ROOT=/tmp/jb-refactoring-ui-test \
+  emacs --batch -L . -l test/refactor-actions-smoke.el
+#+end_src
+
+This copies [[file:fixtures/refactor/Actions.kt][the Kotlin example]] into the fixture project,
+requests the actual action =Replace 'when' with 'if'=, executes the server's
+returned command and waits for the server to request rename. It supplies
+=timestamp= in place of interactive input, then uses the real =textDocument/rename=
+request and verifies the declaration and both references changed. Batch Emacs
+has no idle command loop, so the test dispatches the queued editor callback
+only after the initiating executeCommand returns. Other LSP timers run normally.
+
+Passed on 2026-09-18 with the installed Kotlin LSP 263.4702.0-EAP, in a separate
+Emacs process. This exposed and now covers a timeout caused by starting rename
+inside the original synchronous code-action request.
