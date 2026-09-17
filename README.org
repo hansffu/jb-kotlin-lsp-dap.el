@@ -1,0 +1,153 @@
+#+title: jb-kotlin-lsp-dap.el
+
+Emacs integration for [[https://github.com/Kotlin/kotlin-lsp][JetBrains Kotlin LSP]], using =lsp-mode= and =dap-mode=.
+It registers the language client and uses the debug adapter embedded in the
+language server.  This is an initial implementation targeting the current
+upstream extension protocol, not the separate fwcd Kotlin language server.
+
+* Setup
+
+Install Emacs 28.1 or newer, =lsp-mode=, =dap-mode=, and either =kotlin-mode=
+or =kotlin-ts-mode=.  Install the standalone server following the
+[[https://github.com/Kotlin/kotlin-lsp#install-kotlin-lsp-cli][upstream instructions]], and make =kotlin-lsp= available on Emacs's =exec-path=.
+Complete any first-run setup required by your server distribution separately.
+
+#+begin_src emacs-lisp
+(add-to-list 'load-path "~/code/jb-kotlin-lsp-dap.el")
+(require 'jb-kotlin-lsp-dap)
+(require 'dap-ui)
+
+;; If the server is not on PATH:
+;; (setq jb-kotlin-server-command
+;;       '("/path/to/kotlin-lsp.sh" "--stdio"))
+
+(add-hook 'kotlin-mode-hook #'lsp-deferred)
+(add-hook 'kotlin-ts-mode-hook #'lsp-deferred)
+(setq lsp-lens-enable t)
+(dap-auto-configure-mode 1)
+#+end_src
+
+Open a Kotlin file in a project and let the server finish importing it.
+The client ID is =jb-kotlin=; its priority is higher than lsp-mode's bundled
+=kotlin-ls= client.  If you set =lsp-enabled-clients= yourself, include
+=jb-kotlin=.  Restart an existing workspace after changing clients.
+
+Normal completion, diagnostics, navigation, rename, formatting, semantic
+tokens and inlay hints use lsp-mode's standard protocol support and settings.
+Completion snippets require Yasnippet; otherwise set =lsp-enable-snippet= to
+=nil=.  Enable semantic tokens with =lsp-semantic-tokens-enable= if desired.
+
+* Running and debugging
+
+- =M-x jb-kotlin-debug=: enter a fully qualified main class, such as
+  =com.example.MainKt=.  A prefix argument runs without debugging.
+- Run/Debug code lenses invoke the same launch path.
+- =M-x jb-kotlin-attach=: attach to an existing JVM's JDWP host and port.
+- =M-x dap-debug=: choose the Kotlin JVM, Gradle, or attach template.
+  Customize the launch template's main class with =dap-debug-edit-template=.
+- Use =dap-breakpoint-toggle=, =dap-continue=, =dap-next=, =dap-step-in=,
+  and the other standard dap-mode commands during a session.
+
+Save your project files before launching.  The interactive command and lenses
+prefer Gradle when the server says Gradle can launch the module.  The adapter
+then builds and runs it.  JVM launches resolve and run the server's build
+command first, then resolve the JDK, classpath, module path, working directory,
+and VM arguments.  A failed build stops the launch.  Build output appears in
+=*Kotlin build*=; =C-g= cancels the waiting build and launch.
+Set =jb-kotlin-build-before-run= to =nil= to use already compiled JVM classes.
+
+An explicit JVM template:
+
+#+begin_src emacs-lisp
+(dap-register-debug-template
+ "My Kotlin app"
+ '(:type "intellij_jvm"
+   :request "launch"
+   :name "My Kotlin app"
+   :mainClass "com.example.MainKt"
+   :file "${workspaceFolder}/src/main/kotlin/com/example/Main.kt"
+   :args ["example"]
+   :vmArgs ["-Xmx1g"]))
+#+end_src
+
+Supported adapter types are =intellij_jvm=, =intellij_gradle= and the legacy
+alias =intellij_debugger=.  Gradle configurations also accept =:projectPath=,
+=:sourceSet= and =:gradleArgs=.  Launch output defaults to =internalConsole=
+(the adapter starts the process and sends its output to dap-mode).
+Interactive stdin is not provided by that console.
+
+The adapter port comes from =start_debug_server=.  It is separate from the
+=:port= of a JDWP attach target; the adapter itself connects on localhost.
+Keep the LSP workspace running while debugging.  Invoke debug commands from
+a buffer attached to that workspace, including when using a saved template.
+
+* Project settings
+
+- =jb-kotlin-default-sdk=: JDK home for symbol resolution.
+- =jb-kotlin-projects=: vector of import entries, for example
+  =[(:type "gradle" :path "/path/to/project")]=.
+- =jb-kotlin-build-tools=: hash table mapping workspace URIs to build tools.
+- =jb-kotlin-request-timeout=: launch/build resolution timeout in seconds.
+- =M-x jb-kotlin-reload-workspace=: reimport with the current settings.
+- =*Kotlin import*=: server import log messages.
+
+* What the VS Code client advertises
+
+The implementation was checked against upstream commit
+=a18d1716202a742719acf30354dc01cc27b9b5e8= on 2026-09-16.
+The extension delegates standard LSP capabilities to =vscode-languageclient=;
+this package delegates them to =lsp-mode= rather than claiming VS Code's
+entire capability set.  The additional feature switches below are fields of
+=initialize.initializationOptions=, not =capabilities.experimental=.
+
+| Option               | This package | Meaning                                                   |
+|----------------------+--------------+-----------------------------------------------------------|
+| =lazyIntentions=     | true         | Execute a quick fix only when its command is selected      |
+| =runMainCodeLens=    | true         | Handle =intellij.jvm.runMain= on the client                 |
+| =intellijExtensions= | false        | Custom IntelliJ editor UI notifications/refactoring dialogs |
+| =defaultSdk=         | if set       | JDK used for symbol resolution                             |
+| =projects=           | vector       | Explicit project import entries                            |
+| =buildTools=         | object       | Workspace URI to build tool mapping                        |
+
+The =intellijExtensions= opt-in permits =intellij/copyToClipboard=,
+=intellij/runEditorCommand=, =intellij/chooseAction= and
+=intellij/showConflicts=.  Those editor interactions are not implemented, so
+the package explicitly sends false.  Standard LSP code actions and lazy
+intentions remain available.  Additional gaps are jar/jrt decompilation,
+=jetbrains.navigateToLocation= links, VS Code-specific typing/file templates,
+and test explorer integration.  Remote/TRAMP server operation and Windows
+build wrappers are not supported by this initial implementation.
+
+Protocol sources (pinned for reproducibility):
+
+- [[https://github.com/Kotlin/kotlin-lsp/blob/a18d1716202a742719acf30354dc01cc27b9b5e8/vscode-extension-core/src/dap.ts][dap.ts]]: adapter startup, lens option, launch resolution and field mapping.
+- [[https://github.com/Kotlin/kotlin-lsp/blob/a18d1716202a742719acf30354dc01cc27b9b5e8/vscode-extension-core/src/intellijExtensions.ts][intellijExtensions.ts]]: custom UI protocol and lazy intentions.
+- [[https://github.com/Kotlin/kotlin-lsp/blob/a18d1716202a742719acf30354dc01cc27b9b5e8/vscode-extension-core/src/lspClient.ts][lspClient.ts]]: stdio startup and initialization settings.
+- [[https://github.com/Kotlin/kotlin-lsp/blob/a18d1716202a742719acf30354dc01cc27b9b5e8/vscode-extension-core/src/buildTask.ts][buildTask.ts]]: build command resolution.
+
+Older server releases may lack these commands.  Errors from the server are
+reported rather than falling back to obsolete launch-resolution protocols.
+
+* Development
+
+With lsp-mode and dap-mode on the batch Emacs load path:
+
+#+begin_src sh
+emacs --batch -L . -l test/jb-kotlin-test.el -f ert-run-tests-batch-and-exit
+emacs --batch -L . --eval '(setq byte-compile-error-on-warn t)' \
+  -f batch-byte-compile jb-kotlin-lsp-dap.el
+#+end_src
+
+The same checks are available as =make test= and =make compile=.  Use
+=-L /path/to/dependency= arguments if your dependencies are only made available
+by your interactive init file.  Batch Emacs does not load that init file.
+Tests exercise protocol requests, code lens dispatch, JVM/Gradle field
+mapping, attach ports, and real build process exit handling.  They do not
+require a running language server or download dependencies.
+
+Validation on 2026-09-16: all 14 contract tests passed with both plist and
+hash-table LSP data, and byte compilation passed with warnings treated as
+errors.  A live smoke check with installed Kotlin LSP =263.4702.0-EAP=
+initialized the LSP workspace, started the embedded adapter, and received a
+successful DAP =initialize= response.  A full Gradle/Maven application launch
+and breakpoint session has not yet been exercised.
