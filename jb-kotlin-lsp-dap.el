@@ -229,14 +229,7 @@ Output goes to a compilation buffer.  C-g cancels the build and launch."
                    :name (format "Kotlin %s:%s" host port)
                    :hostName host :port port)))
 
-;;;###autoload
-(defun jb-kotlin-reload-workspace ()
-  "Reload project imports with the current initialization settings."
-  (interactive)
-  (with-lsp-workspace (jb-kotlin--workspace)
-    (lsp-request "intellij/reloadWorkspace"
-                 (list :initializationOptions
-                       (jb-kotlin--initialization-options)))))
+(require 'jb-kotlin-reload)
 
 (defun jb-kotlin--import-log (_workspace params)
   "Record project import PARAMS from WORKSPACE."

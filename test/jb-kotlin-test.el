@@ -188,16 +188,9 @@
              (lambda (&rest _) (ert-fail "Unsupported builds must not spawn"))))
     (jb-kotlin--build "file:///tmp/Main.kt")))
 
-(ert-deftest jb-kotlin-reload-resends-options ()
-  (jb-kotlin-test--workspace
-    (cl-letf (((symbol-function 'lsp-request)
-               (lambda (method params)
-                 (should (equal "intellij/reloadWorkspace" method))
-                 (should (eq t (plist-get (plist-get params :initializationOptions)
-                                         :runMainCodeLens))))))
-      (jb-kotlin-reload-workspace))))
-
 (load (expand-file-name "jb-kotlin-navigation-test.el"
+                        (file-name-directory (or load-file-name buffer-file-name))) nil t)
+(load (expand-file-name "jb-kotlin-reload-test.el"
                         (file-name-directory (or load-file-name buffer-file-name))) nil t)
 
 ;;; jb-kotlin-test.el ends here

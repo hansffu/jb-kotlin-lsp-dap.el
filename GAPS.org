@@ -13,7 +13,7 @@ for tests. Keep server system/config/log paths and lsp-session-file isolated.
 | Priority | Gap                          | Branch                               | Status      |
 |----------+------------------------------+--------------------------------------+-------------|
 |        1 | Dependency-source navigation | feature/dependency-source-navigation | Implemented |
-|        2 | Build-file reimport          | feature/build-file-reimport          | Planned     |
+|        2 | Build-file reimport          | feature/build-file-reimport          | Implemented |
 |        3 | Import status and recovery   | feature/import-status                | Planned     |
 |        4 | IntelliJ refactoring UI      | feature/refactoring-ui               | Planned     |
 
@@ -41,6 +41,19 @@ Gradle/Maven descriptors. Coalesce saves; do not trigger duplicate imports for
 files already watched and reimported by the server. Verify dependency changes
 in small build projects and ensure reloads target the owning workspace.
 
+Implemented with =always= (default), =prompt= and =never= save policies,
+asynchronous requests and per-workspace coalescing. Build buffers need no LSP
+attachment. The supported filenames match upstream, including Bazel; server-
+watched settings such as =workspace.json= are excluded. Manual reload also
+works from build files. Disconnects discard queued work, and request failures
+allow retry without an automatic retry loop.
+
+Validated with 34 unit tests using plist and hash-table protocol data and two
+generated Gradle projects (Groovy and Kotlin DSL) in separate Emacs/LSP
+processes. Saving each build file added and removed a local JAR dependency;
+definition results changed accordingly on the same LSP connection. Maven and
+Bazel descriptor routing is unit-tested; live imports remain unverified.
+
 Upstream: [[https://github.com/Kotlin/kotlin-lsp/blob/a18d1716202a742719acf30354dc01cc27b9b5e8/vscode-extension-core/src/autoReloadWorkspace.ts][autoReloadWorkspace.ts]].
 
 * 3. Import status and recovery
@@ -49,6 +62,8 @@ Currently =intellij/workspaceImportStatus= is ignored and import log success/
 failure flags are dropped. Display import failures and blocked build-tool
 selection, expose logs and retry/reload actions, and keep state per workspace.
 Verify a failed import, a successful retry and multiple simultaneous projects.
+The installed 263.4702.0 server emits =intellij/workspaceImportState=; check
+compatibility with that notification as well as the pinned upstream protocol.
 
 Upstream: [[https://github.com/Kotlin/kotlin-lsp/blob/a18d1716202a742719acf30354dc01cc27b9b5e8/vscode-extension-core/src/lspClient.ts][lspClient.ts]].
 

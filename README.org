@@ -111,6 +111,24 @@ a buffer attached to that workspace, including when using a saved template.
 - =M-x jb-kotlin-reload-workspace=: reimport with the current settings.
 - =*Kotlin import*=: server import log messages.
 
+Saving =pom.xml=, =build.gradle[.kts]= or =settings.gradle[.kts]= automatically
+reimports the owning Kotlin workspace. Bazel descriptors (=BUILD=,
+=BUILD.bazel=, =MODULE.bazel=, =WORKSPACE[.bazel]=, =.bazelproject= and =*.bzl=)
+are supported too. Build buffers do not need to run LSP. Files outside a
+running Kotlin workspace do not trigger imports or project prompts.
+
+Set =jb-kotlin-reload-on-save= to =always= (the default), =prompt= or =never=.
+=never= leaves client-triggered reloads to =M-x jb-kotlin-reload-workspace=,
+which also works in build-file buffers. Set =jb-kotlin-reload-delay= to change
+the idle delay (default one second). Rapid saves share a reload; saves during
+an outstanding request queue one subsequent reload. Imports run asynchronously.
+Request failures are reported with a manual retry command.
+
+Files already handled by server-side import watchers, such as =workspace.json=,
+are deliberately excluded. The client policy does not disable those watchers.
+External file changes and other build inputs (such as Gradle version catalogs)
+are not covered by this save hook; use the manual reload command for those.
+
 * What the VS Code client advertises
 
 The implementation was checked against upstream commit
@@ -167,7 +185,7 @@ With lsp-mode and dap-mode on the batch Emacs load path:
 #+begin_src sh
 emacs --batch -L . -l test/jb-kotlin-test.el -f ert-run-tests-batch-and-exit
 emacs --batch -L . --eval '(setq byte-compile-error-on-warn t)' \
-  -f batch-byte-compile jb-kotlin-navigation.el jb-kotlin-lsp-dap.el
+  -f batch-byte-compile jb-kotlin-navigation.el jb-kotlin-reload.el jb-kotlin-lsp-dap.el
 #+end_src
 
 The same checks are available as =make test= and =make compile=.  Use
@@ -189,3 +207,9 @@ plist and hash-table LSP data; byte compilation passed with warnings treated
 as errors. Two generated offline projects passed in separate batch Emacs
 31.1 processes against Kotlin LSP =263.4702.0-EAP=, including binary/source JAR
 navigation, JDK/JRT sources, cache reopening, and a real hover navigation link.
+
+Build-reload validation on 2026-09-17: all 34 unit tests passed with both LSP
+data formats, and byte compilation passed with warnings treated as errors.
+Separate Emacs/LSP processes verified that saving Gradle Groovy and Kotlin DSL
+build files adds/removes a local dependency without restarting LSP. Maven and
+Bazel descriptor routing is unit-tested; live imports remain unverified.

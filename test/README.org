@@ -51,3 +51,38 @@ kotlin-mode/kotlin-ts-mode indentation or syntax highlighting.
 
 The generated project root contains the retained server logs and request
 traces for inspection. Temporary client source caches are removed on Emacs exit.
+
+* Build-file reload integration test
+
+Create Gradle Groovy and Kotlin DSL projects using an existing Gradle 9.x
+distribution. The generator packages it into a local wrapper ZIP; no Gradle
+distribution or plugin downloads are needed. Both projects use Gradle's Java
+plugin and Kotlin source in a Java source root, avoiding a Kotlin plugin download.
+
+#+begin_src sh
+python3 test/create-reload-projects.py /tmp/jb-reload-test \
+  --gradle-home /path/to/gradle-9.3.1
+JB_KOTLIN_TEST_ROOT=/tmp/jb-reload-test JB_KOTLIN_TEST_PROJECT=groovy \
+  emacs --batch -L . -l test/reload-smoke.el
+JB_KOTLIN_TEST_ROOT=/tmp/jb-reload-test JB_KOTLIN_TEST_PROJECT=kotlin \
+  emacs --batch -L . -l test/reload-smoke.el
+#+end_src
+
+Each run uses a separate Emacs/LSP process and a private Gradle user home.
+Gradle needs local sockets for its daemon, so a sandbox that blocks sockets
+cannot run this test. The fixture configures its daemon to exit after ten idle
+seconds. The user's Emacs server and build caches are not used.
+
+The test saves the build file to add a local JAR, verifies its class becomes
+resolvable, removes it via another save, and verifies it becomes unresolved.
+It checks that precisely two reload requests were sent and that build buffers
+do not need LSP. Batch Emacs has no idle command loop, so the test explicitly
+fires the queued idle callback; save hooks and all server requests are real.
+Unit tests cover policies, coalescing, saves during requests, nested workspaces,
+failures, disconnects and exclusion of server-watched settings. Maven/Bazel
+descriptor routing is unit-tested; their imports are not covered by this fixture.
+
+Validated on 2026-09-17 with Emacs 31.1, Kotlin LSP 263.4702.0-EAP and Gradle
+9.3.1: both live fixtures passed; all 34 unit tests passed with plist and
+hash-table protocol data; package byte compilation passed with warnings
+treated as errors.
