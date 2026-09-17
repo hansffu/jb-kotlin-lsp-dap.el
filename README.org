@@ -37,6 +37,23 @@ tokens and inlay hints use lsp-mode's standard protocol support and settings.
 Completion snippets require Yasnippet; otherwise set =lsp-enable-snippet= to
 =nil=.  Enable semantic tokens with =lsp-semantic-tokens-enable= if desired.
 
+* Dependency sources
+
+Definitions into library JARs and JDK classes open in read-only buffers, using
+the server's =decompile= command. Attached source JARs and JDK source ZIPs use
+the same path. Source buffers retain the original =jar:= or =jrt:= URI and
+stay attached to their Kotlin workspace. Files are cached separately for each
+workspace in temporary directories, removed when this Emacs process exits.
+
+=jetbrains.navigateToLocation= commands and hover links (such as "Go to Super
+Method") are handled locally. When a help buffer has no workspace context and
+several Kotlin workspaces are open, a dependency link asks which one to use.
+Only that navigation command is accepted from =command:= links.
+
+The installed server may return no hover or further definition information
+for binary-only decompiled Java stubs. Attached Java sources do provide hover
+navigation links in the integration fixture. See [[file:test/README.org][isolated test instructions]].
+
 * Running and debugging
 
 - =M-x jb-kotlin-debug=: enter a fully qualified main class, such as
@@ -85,7 +102,7 @@ a buffer attached to that workspace, including when using a saved template.
 
 - =jb-kotlin-default-sdk=: JDK home for symbol resolution.
 - =jb-kotlin-projects=: vector of import entries, for example
-  =[(:type "gradle" :path "/path/to/project")]=.
+  =[(:type "gradle" :path "file:///path/to/project")]=. The path is a URI.
 - =jb-kotlin-build-tools=: hash table mapping workspace URIs to build tools.
 - =jb-kotlin-request-timeout=: launch/build resolution timeout in seconds.
 - =M-x jb-kotlin-reload-workspace=: reimport with the current settings.
@@ -113,10 +130,10 @@ The =intellijExtensions= opt-in permits =intellij/copyToClipboard=,
 =intellij/runEditorCommand=, =intellij/chooseAction= and
 =intellij/showConflicts=.  Those editor interactions are not implemented, so
 the package explicitly sends false.  Standard LSP code actions and lazy
-intentions remain available.  Additional gaps are jar/jrt decompilation,
-=jetbrains.navigateToLocation= links, VS Code-specific typing/file templates,
-and test explorer integration.  Remote/TRAMP server operation and Windows
-build wrappers are not supported by this initial implementation.
+intentions remain available. See [[file:GAPS.org][the implementation queue]] for prioritized
+client gaps and validation plans. Remote/TRAMP server operation and Windows
+build wrappers are not supported. Test explorer parity with the pinned VS Code
+extension has not been established.
 
 Protocol sources (pinned for reproducibility):
 
@@ -135,7 +152,7 @@ With lsp-mode and dap-mode on the batch Emacs load path:
 #+begin_src sh
 emacs --batch -L . -l test/jb-kotlin-test.el -f ert-run-tests-batch-and-exit
 emacs --batch -L . --eval '(setq byte-compile-error-on-warn t)' \
-  -f batch-byte-compile jb-kotlin-lsp-dap.el
+  -f batch-byte-compile jb-kotlin-navigation.el jb-kotlin-lsp-dap.el
 #+end_src
 
 The same checks are available as =make test= and =make compile=.  Use
@@ -151,3 +168,9 @@ errors.  A live smoke check with installed Kotlin LSP =263.4702.0-EAP=
 initialized the LSP workspace, started the embedded adapter, and received a
 successful DAP =initialize= response.  A full Gradle/Maven application launch
 and breakpoint session has not yet been exercised.
+
+Dependency-navigation validation on 2026-09-17: all 21 tests passed with both
+plist and hash-table LSP data; byte compilation passed with warnings treated
+as errors. Two generated offline projects passed in separate batch Emacs
+31.1 processes against Kotlin LSP =263.4702.0-EAP=, including binary/source JAR
+navigation, JDK/JRT sources, cache reopening, and a real hover navigation link.

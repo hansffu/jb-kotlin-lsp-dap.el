@@ -1,0 +1,51 @@
+#+title: Isolated Kotlin client tests
+
+Unit tests: =emacs --batch -L . -l test/jb-kotlin-test.el -f ert-run-tests-batch-and-exit=.
+Batch Emacs does not load the user's init. Dependencies must be on its load-path.
+
+* Dependency navigation integration test
+
+Requires Python 3, JDK 17+ (javac), kotlin-lsp, lsp-mode and dap-mode.
+The generator creates two standalone JSON-import projects: a compiled library
+without attached sources, and the same library with an attached source JAR.
+The library is built locally, with no dependency downloads. Project directories
+and every test Emacs/LSP state directory live under the supplied new directory.
+
+#+begin_src sh
+python3 test/create-navigation-projects.py /tmp/jb-navigation-test
+JB_KOTLIN_TEST_ROOT=/tmp/jb-navigation-test JB_KOTLIN_TEST_PROJECT=binary \
+  emacs --batch -L . -l test/navigation-smoke.el
+JB_KOTLIN_TEST_ROOT=/tmp/jb-navigation-test JB_KOTLIN_TEST_PROJECT=sources \
+  emacs --batch -L . -l test/navigation-smoke.el
+#+end_src
+
+Always use a new Emacs process; never use emacsclient or the user's existing
+server. Each test starts its own stdio language server with private cache,
+config, log, Java preferences and LSP-session paths, and shuts down only that
+server. The test prints both process IDs. Existing server licensing/first-run setup must already
+be satisfied; the harness does not accept terms or change license settings.
+
+The test checks real Kotlin definition results into the JAR and JDK, read-only
+source buffers, original URI preservation, subsequent hover requests, xref
+conversion, source reopening, command links and explicit JRT decompilation.
+For attached Java sources it follows a real server-generated "Go to Super
+Method" hover link. Binary-stub hover/definition results may be empty on the
+installed server; the test records these and compares direct requests before
+and after opening the source buffer instead of claiming those results exist.
+The test major mode supplies only the Kotlin language ID; it does not assess
+kotlin-mode/kotlin-ts-mode indentation or syntax highlighting.
+
+* Validation record (2026-09-17)
+
+- Emacs 31.1; Kotlin LSP 263.4702.0-EAP; fixture library compiled for Java 17.
+- 21 unit tests passed with plist and hash-table LSP protocol objects.
+- Package byte compilation passed with warnings treated as errors.
+- Binary-only and attached-source projects passed in separate batch Emacs/LSP
+  processes. No emacsclient calls or connection to the user's Emacs server.
+- Original document URIs were visible in the real didOpen/hover/definition
+  request trace. Attached-source hover navigation reached Object.toString.
+- Binary-stub hover and follow-up definition requests returned empty results
+  in this server build. This remains an explicitly recorded limitation.
+
+The generated project root contains the retained server logs and request
+traces for inspection. Temporary client source caches are removed on Emacs exit.

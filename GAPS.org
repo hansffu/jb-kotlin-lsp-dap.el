@@ -1,0 +1,78 @@
+#+title: Kotlin client implementation queue
+
+Comparison baseline: Kotlin/kotlin-lsp commit
+=a18d1716202a742719acf30354dc01cc27b9b5e8=, reviewed 2026-09-17.
+Standard completion, diagnostics, rename, formatting, semantic tokens, inlay
+hints and call hierarchy are delegated to lsp-mode. The items below concern
+additional client integration, not a claim that standard LSP is missing.
+
+Each item gets a feature branch, focused automated tests, and an isolated
+Emacs/LSP smoke test where feasible. Never use the user's running Emacs server
+for tests. Keep server system/config/log paths and lsp-session-file isolated.
+
+| Priority | Gap                          | Branch                               | Status      |
+|----------+------------------------------+--------------------------------------+-------------|
+|        1 | Dependency-source navigation | feature/dependency-source-navigation | Implemented |
+|        2 | Build-file reimport          | feature/build-file-reimport          | Planned     |
+|        3 | Import status and recovery   | feature/import-status                | Planned     |
+|        4 | IntelliJ refactoring UI      | feature/refactoring-ui               | Planned     |
+
+* 1. Dependency-source navigation
+
+Handle jar:/jrt: sources using =decompile=; preserve the original document URI
+in read-only buffers attached to the originating workspace. Support
+=jetbrains.navigateToLocation= from LSP commands and hover command links.
+Verify real definition results into a library JAR and JDK, caching, reopening,
+follow-up requests from library buffers, Unicode positions and failures.
+
+Implemented on the named branch. Both offline projects pass real-server
+definition, source-opening, xref, cache/reopen, command-link and JRT checks.
+The attached-source fixture additionally checks a server-generated "Go to
+Super Method" hover link. On server 263.4702.0-EAP, binary-only Java stubs can
+return empty hover/follow-up definition results even for direct requests before
+the client opens a buffer; source opening itself works.
+
+Upstream: [[https://github.com/Kotlin/kotlin-lsp/blob/a18d1716202a742719acf30354dc01cc27b9b5e8/vscode-extension-core/src/decompiler.ts][decompiler.ts]].
+
+* 2. Build-file reimport
+
+Offer automatic, prompted and manual reload policies after saves of supported
+Gradle/Maven descriptors. Coalesce saves; do not trigger duplicate imports for
+files already watched and reimported by the server. Verify dependency changes
+in small build projects and ensure reloads target the owning workspace.
+
+Upstream: [[https://github.com/Kotlin/kotlin-lsp/blob/a18d1716202a742719acf30354dc01cc27b9b5e8/vscode-extension-core/src/autoReloadWorkspace.ts][autoReloadWorkspace.ts]].
+
+* 3. Import status and recovery
+
+Currently =intellij/workspaceImportStatus= is ignored and import log success/
+failure flags are dropped. Display import failures and blocked build-tool
+selection, expose logs and retry/reload actions, and keep state per workspace.
+Verify a failed import, a successful retry and multiple simultaneous projects.
+
+Upstream: [[https://github.com/Kotlin/kotlin-lsp/blob/a18d1716202a742719acf30354dc01cc27b9b5e8/vscode-extension-core/src/lspClient.ts][lspClient.ts]].
+
+* 4. IntelliJ refactoring UI
+
+Implement =intellij/copyToClipboard=, =intellij/runEditorCommand=,
+=intellij/chooseAction= and =intellij/showConflicts= before changing
+=intellijExtensions= to true. Map only supported editor commands. Conflict
+dialogs must cancel on dismissal, cancellation, disconnect or intervening edits.
+Verify apply/cancel behavior and nested choices without applying stale edits.
+
+Upstream: [[https://github.com/Kotlin/kotlin-lsp/blob/a18d1716202a742719acf30354dc01cc27b9b5e8/vscode-extension-core/src/intellijExtensions.ts][intellijExtensions.ts]].
+
+* Follow-up improvements
+
+- Verify integrated-terminal launches and interactive stdin using dap-mode's
+  existing runInTerminal support; internalConsole currently provides no stdin.
+- Make JVM builds asynchronous; cover cancellation and process cleanup.
+- Exercise full Gradle/Maven run, attach and breakpoint sessions.
+- Add server-assisted file templates, workspace export and cache-reset tooling.
+- Evaluate Kotlin typing conveniences in kotlin-mode/kotlin-ts-mode separately.
+- Enroll Java source buffers in mixed Kotlin/Java projects so unsaved Java edits
+  can reach Kotlin LSP; normal registration currently covers only Kotlin modes.
+- Remote/TRAMP operation and Windows build wrappers remain unsupported.
+
+Test explorer parity is unverified: no registered test controller was found in
+the pinned Kotlin VS Code extension. Do not describe it as an established gap.

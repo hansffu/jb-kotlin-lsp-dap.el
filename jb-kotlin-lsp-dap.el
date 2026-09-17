@@ -16,6 +16,7 @@
 (require 'compile)
 (require 'lsp-mode)
 (require 'dap-mode)
+(require 'jb-kotlin-navigation)
 
 (defgroup jb-kotlin nil
   "JetBrains Kotlin language server and debugger."
@@ -31,7 +32,7 @@
 
 (defcustom jb-kotlin-projects []
   "Vector of project import plists, as accepted by Kotlin LSP.
-For example, [(:type \"gradle\" :path \"/path/to/project\")]."
+For example, [(:type \"gradle\" :path \"file:///path/to/project\")]."
   :type 'sexp)
 
 (defcustom jb-kotlin-build-tools (make-hash-table :test 'equal)
@@ -249,7 +250,11 @@ Output goes to a compilation buffer.  C-g cancels the build and launch."
   :major-modes '(kotlin-mode kotlin-ts-mode)
   :priority 1 :server-id 'jb-kotlin
   :initialization-options #'jb-kotlin--initialization-options
-  :action-handlers (lsp-ht ("intellij.jvm.runMain" #'jb-kotlin--lens-action))
+  :uri-handlers (lsp-ht ("jar" #'jb-kotlin--source-uri)
+                        ("jrt" #'jb-kotlin--source-uri)
+                        ("command" #'jb-kotlin--command-uri))
+  :action-handlers (lsp-ht ("intellij.jvm.runMain" #'jb-kotlin--lens-action)
+                          ("jetbrains.navigateToLocation" #'jb-kotlin--navigate-action))
   :notification-handlers
   (lsp-ht ("intellij/importLog" #'jb-kotlin--import-log)
           ("intellij/workspaceImportStatus" #'ignore))))

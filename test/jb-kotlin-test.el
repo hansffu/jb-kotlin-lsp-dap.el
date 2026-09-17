@@ -197,4 +197,7 @@
                                          :runMainCodeLens))))))
       (jb-kotlin-reload-workspace))))
 
+(load (expand-file-name "jb-kotlin-navigation-test.el"
+                        (file-name-directory (or load-file-name buffer-file-name))) nil t)
+
 ;;; jb-kotlin-test.el ends here
