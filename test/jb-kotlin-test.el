@@ -197,4 +197,7 @@
 (load (expand-file-name "jb-kotlin-refactor-test.el"
                         (file-name-directory (or load-file-name buffer-file-name))) nil t)
 
+(load (expand-file-name "jb-kotlin-launch-test.el"
+                        (file-name-directory (or load-file-name buffer-file-name))) nil t)
+
 ;;; jb-kotlin-test.el ends here

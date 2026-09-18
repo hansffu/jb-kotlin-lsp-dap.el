@@ -96,12 +96,31 @@ explicitly skipped; real-server conflict apply/cancel remains unverified.
 
 Upstream: [[https://github.com/Kotlin/kotlin-lsp/blob/a18d1716202a742719acf30354dc01cc27b9b5e8/vscode-extension-core/src/intellijExtensions.ts][intellijExtensions.ts]].
 
+* Debugging validation and launch configuration tools
+
+Implemented on =feature/debug-launch-tools=: draft creation, comment-preserving
+additions and validation use dap-mode's existing launch.json support. Main-class
+suggestions come from the current file's lenses; paths remain portable. Kotlin
+integrated consoles use comint with direct argv and per-process environments.
+
+Validated on 2026-09-18 in separate Emacs/LSP instances: Gradle and Maven launch
+from generated launch.json, breakpoints, local variables, stepping, expression
+evaluation, noDebug runs with terminal stdin/environment and attach to a
+separate JVM all pass. All 70 client tests pass in both LSP data formats.
+See test/README.org for fixtures and limitations. External terminals and
+Windows wrappers remain unverified.
+
+Two issues remain visible with 263.4702.0-EAP: Gradle internalConsole can
+terminate before final program stdout is delivered (use integratedTerminal),
+and the adapter sends invalidated events for asynchronously collected values.
+dap-mode does not refresh locals/watches for that event, so the live test
+re-requests values explicitly; automatic UI refresh is still a client gap.
+
 * Follow-up improvements
 
-- Verify integrated-terminal launches and interactive stdin using dap-mode's
-  existing runInTerminal support; internalConsole currently provides no stdin.
+- Handle DAP invalidated events to refresh asynchronously collected locals
+  and watches without manual refresh.
 - Make JVM builds asynchronous; cover cancellation and process cleanup.
-- Exercise full Gradle/Maven run, attach and breakpoint sessions.
 - Add server-assisted file templates, workspace export and cache-reset tooling.
 - Evaluate Kotlin typing conveniences in kotlin-mode/kotlin-ts-mode separately.
 - Enroll Java source buffers in mixed Kotlin/Java projects so unsaved Java edits

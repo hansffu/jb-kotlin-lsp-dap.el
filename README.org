@@ -76,6 +76,60 @@ and VM arguments.  A failed build stops the launch.  Build output appears in
 =*Kotlin build*=; =C-g= cancels the waiting build and launch.
 Set =jb-kotlin-build-before-run= to =nil= to use already compiled JVM classes.
 
+** Project launch.json
+
+- =M-x jb-kotlin-add-launch-configuration=: choose JVM launch, Gradle launch
+  or attach. For launches, main classes from the current file's Run/Debug
+  lenses are offered as suggestions; you can enter another fully qualified
+  class. Choose a console and configuration name.
+- =M-x jb-kotlin-open-launch-file=: open =.vscode/launch.json= in the current
+  Kotlin workspace, creating a draft when it does not exist.
+- =M-x jb-kotlin-validate-launch-file=: check JSON syntax, required Kotlin
+  fields, console names, JDWP ports and argument arrays in the current draft.
+
+Review and save with =C-x C-s=, then use =M-x dap-debug= and select the saved
+configuration. Existing entries, comments and trailing commas are preserved
+when adding an entry; duplicate names and malformed files are rejected.
+Generated source and working-directory paths use =${workspaceFolder}=.
+The tools use an already-running Kotlin workspace without asking to register
+another project. Debugging can also start from that workspace's launch.json.
+
+For example:
+
+#+begin_src json
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "App",
+      "type": "intellij_gradle",
+      "request": "launch",
+      "mainClass": "demo.MainKt",
+      "file": "${workspaceFolder}/src/main/kotlin/demo/Main.kt",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "args": ["hello world"],
+      "env": {"APP_ENV": "development"}
+    }
+  ]
+}
+#+end_src
+
+Use =intellij_jvm= for a plain JVM launch, including Maven projects. Optional
+=vmArgs=, =classPaths= and =modulePaths= are arrays of strings. Gradle accepts
+=projectPath=, =sourceSet= and =gradleArgs=; set =noDebug= to true for a saved
+run configuration. Runtime paths and adapter ports are resolved at launch and
+are not written into the generated file.
+
+The generated configuration defaults to =integratedTerminal=. Kotlin launches
+use an Emacs comint buffer: type input and press RET, with output retained
+when the program ends. Arguments are passed directly without shell expansion;
+the adapter's environment additions/removals apply only to that process.
+Terminal processes started for a session are cleaned up when it terminates.
+External terminals continue through dap-mode's terminal settings.
+
+** Lisp templates
+
 An explicit JVM template:
 
 #+begin_src emacs-lisp
@@ -99,7 +153,7 @@ Interactive stdin is not provided by that console.
 The adapter port comes from =start_debug_server=.  It is separate from the
 =:port= of a JDWP attach target; the adapter itself connects on localhost.
 Keep the LSP workspace running while debugging.  Invoke debug commands from
-a buffer attached to that workspace, including when using a saved template.
+a source buffer or launch.json inside that workspace.
 
 * Project settings
 
@@ -234,7 +288,7 @@ With lsp-mode and dap-mode on the batch Emacs load path:
 #+begin_src sh
 emacs --batch -L . -l test/jb-kotlin-test.el -f ert-run-tests-batch-and-exit
 emacs --batch -L . --eval '(setq byte-compile-error-on-warn t)' \
-  -f batch-byte-compile jb-kotlin-navigation.el jb-kotlin-reload.el jb-kotlin-import.el jb-kotlin-lsp-dap.el
+  -f batch-byte-compile jb-kotlin-navigation.el jb-kotlin-reload.el jb-kotlin-import.el jb-kotlin-refactor.el jb-kotlin-launch.el jb-kotlin-terminal.el jb-kotlin-lsp-dap.el
 #+end_src
 
 The same checks are available as =make test= and =make compile=.  Use
@@ -248,8 +302,8 @@ Validation on 2026-09-16: all 14 contract tests passed with both plist and
 hash-table LSP data, and byte compilation passed with warnings treated as
 errors.  A live smoke check with installed Kotlin LSP =263.4702.0-EAP=
 initialized the LSP workspace, started the embedded adapter, and received a
-successful DAP =initialize= response.  A full Gradle/Maven application launch
-and breakpoint session has not yet been exercised.
+successful DAP =initialize= response. Full application sessions are covered
+by the later debugging validation below.
 
 Dependency-navigation validation on 2026-09-17: all 23 tests passed with both
 plist and hash-table LSP data; byte compilation passed with warnings treated
@@ -268,3 +322,16 @@ LSP data formats; byte compilation passed with warnings treated as errors.
 A separate Emacs/LSP process verified dismissed build-tool selection,
 reopening the chooser, a real Gradle import failure and successful retry from
 the workspace log. Independent simultaneous workspace state is unit-tested.
+
+Debugging validation on 2026-09-18: 70 client tests pass with both LSP data
+formats; byte compilation passes with warnings treated as errors. Separate
+Emacs/LSP sessions against 263.4702.0-EAP pass Gradle/Maven launch.json launches,
+breakpoints, variables, stepping, evaluation, interactive noDebug runs and JVM
+attach. Fixture setup and coverage limits are in [[file:test/README.org][test/README.org]].
+
+Prefer =integratedTerminal= for Gradle: this server sometimes ends an
+internalConsole debug session before delivering final program output.
+Asynchronously collected variables can initially show "Collecting data…";
+dap-mode currently ignores the server's =invalidated= refresh notification.
+The live test explicitly re-requests values, so automatic locals/watch UI
+refresh remains a documented gap. External terminals are not live-tested.

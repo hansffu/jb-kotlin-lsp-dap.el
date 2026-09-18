@@ -157,3 +157,52 @@ only after the initiating executeCommand returns. Other LSP timers run normally.
 Passed on 2026-09-18 with the installed Kotlin LSP 263.4702.0-EAP, in a separate
 Emacs process. This exposed and now covers a timeout caused by starting rename
 inside the original synchronous code-action request.
+
+* Launch configuration and debugging integration tests
+
+The generator needs a local Gradle distribution and a populated Maven
+repository containing Kotlin 2.2.21, kotlin-maven-plugin and its dependencies,
+plus the pinned Maven build plugins. It copies that repository into the new
+test root (potentially several GB); it does not modify the original repository.
+Missing stdlib source/javadoc attachments can be fetched into the private copy
+with the optional =--download-missing-docs= flag. All subsequent builds/imports
+use that private repository offline.
+
+#+begin_src sh
+python3 test/create-debug-projects.py /tmp/jb-debug-test \
+  --gradle-home /path/to/gradle-9.3.1 \
+  --maven-repository "$HOME/.m2/repository" --download-missing-docs
+JB_KOTLIN_TEST_ROOT=/tmp/jb-debug-test JB_KOTLIN_TEST_PROJECT=gradle \
+  emacs --batch -L . -l test/debug-smoke.el
+JB_KOTLIN_TEST_ROOT=/tmp/jb-debug-test JB_KOTLIN_TEST_PROJECT=maven \
+  emacs --batch -L . -l test/debug-smoke.el
+#+end_src
+
+Run these only in new Emacs processes. Each uses private Emacs/LSP state,
+breakpoint persistence, server caches, Java preferences and Gradle user home.
+Local sockets are required for Gradle, DAP and JDWP. Import uses the packaged
+Gradle distribution; launch uses the =gradle= executable on PATH. The Gradle
+fixture invokes the cached Kotlin compiler through a custom JavaExec task;
+it does not verify Kotlin Gradle plugin integration. The Maven fixture uses
+the normal Kotlin Maven plugin. =mvn= and =gradle= must be on PATH.
+
+Both tests wait for indexing, generate a portable launch.json and parse it
+through dap-mode, hit a real source breakpoint, inspect locals, evaluate an
+argument, step and continue. They then run without debugging in the integrated
+console, verify environment/argv and send stdin, and finally attach to a
+separate suspended JVM on an ephemeral port and repeat breakpoint checks.
+Session processes are cleaned up and LSP traces remain in each state directory.
+The batch test explicitly retries delayed variable values; it does not verify
+automatic locals/watch UI refresh. External terminals are not exercised.
+
+Validated on 2026-09-18: both live projects passed with Emacs 31.1, Kotlin LSP
+263.4702.0-EAP, Java 25, Kotlin 2.2.21, Gradle 9.3.1 import / 9.7.1 launch.
+All 70 client tests passed with plist and hash-table LSP data; compilation
+passed with warnings treated as errors. Client tests additionally cover
+JSONC preservation, malformed/duplicate configurations, unsaved wizard drafts,
+workspace lookup, literal argv, environment removal and session-owned cleanup.
+
+Known server/client limits: Gradle internalConsole can miss final program
+stdout when the adapter terminates; integratedTerminal retained it in these
+tests. The adapter emits =invalidated= for delayed variable values but dap-mode
+has no handler, so the UI may need a manual refresh. These remain in GAPS.org.

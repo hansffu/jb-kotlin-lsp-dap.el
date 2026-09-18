@@ -64,6 +64,7 @@ Gradle launches always build through the debug adapter."
          (eq (lsp--client-server-id (lsp--workspace-client workspace))
              'jb-kotlin))
        (lsp-workspaces))
+      (jb-kotlin--file-workspace (or buffer-file-name default-directory))
       (user-error "Start JetBrains Kotlin LSP in this buffer first (M-x lsp)")))
 
 (defun jb-kotlin--command (command &rest arguments)
@@ -232,6 +233,8 @@ Output goes to a compilation buffer.  C-g cancels the build and launch."
 
 (require 'jb-kotlin-reload)
 (require 'jb-kotlin-import)
+(require 'jb-kotlin-launch)
+(require 'jb-kotlin-terminal)
 
 (lsp-register-client
  (make-lsp-client
