@@ -5,6 +5,11 @@ It registers the language client and uses the debug adapter embedded in the
 language server.  This is an initial implementation targeting the current
 upstream extension protocol, not the separate fwcd Kotlin language server.
 
+This is an LLM-generated replication of functionality from the Kotlin VS Code
+extension, adapted for Emacs. It is an independent project, not an official
+JetBrains client. Feature coverage and known gaps are documented in
+[[file:GAPS.org][GAPS.org]].
+
 * Setup
 
 Install Emacs 28.1 or newer, =lsp-mode=, =dap-mode=, and either =kotlin-mode=
@@ -26,6 +31,41 @@ Complete any first-run setup required by your server distribution separately.
 (setq lsp-lens-enable t)
 (dap-auto-configure-mode 1)
 #+end_src
+
+Alternatively, with =use-package=, clone the repository:
+
+#+begin_src sh
+git clone https://github.com/hansffu/jb-kotlin-lsp-dap.el.git ~/code/jb-kotlin-lsp-dap.el
+#+end_src
+
+Then add this to your Emacs configuration, adjusting =:load-path= if needed.
+Install your preferred Kotlin major mode as described above. The server still
+needs to be installed separately and available on Emacs's =exec-path=.
+
+#+begin_src emacs-lisp
+(use-package lsp-mode
+  :ensure t
+  :custom
+  (lsp-lens-enable t))
+
+(use-package dap-mode
+  :ensure t
+  :config
+  (require 'dap-ui)
+  (dap-auto-configure-mode 1))
+
+(use-package jb-kotlin-lsp-dap
+  :ensure nil
+  :load-path "~/code/jb-kotlin-lsp-dap.el"
+  :demand t
+  :hook ((kotlin-mode . lsp-deferred)
+         (kotlin-ts-mode . lsp-deferred)))
+#+end_src
+
+=:ensure nil= loads this library from your clone instead of a package archive.
+=:demand t= registers the Kotlin client even if you normally defer packages.
+On Emacs versions without built-in =use-package=, install it first. Use either
+this setup or the plain Lisp setup above.
 
 Open a Kotlin file in a project and let the server finish importing it.
 The client ID is =jb-kotlin=; its priority is higher than lsp-mode's bundled
