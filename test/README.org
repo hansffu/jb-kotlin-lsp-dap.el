@@ -3,6 +3,28 @@
 Unit tests: =emacs --batch -L . -l test/jb-kotlin-test.el -f ert-run-tests-batch-and-exit=.
 Batch Emacs does not load the user's init. Dependencies must be on its load-path.
 
+* Release revalidation record (2026-10-29)
+
+- Emacs 30.2; Kotlin LSP 263.7084.0-EAP; Java 25; Gradle 9.8.2; Maven 3.10.0.
+  lsp-mode 20261020.1728 and dap-mode 20260616.1526 were installed from MELPA
+  into a private package directory.
+- 75 unit tests passed in hash-table mode, and again with lsp-mode and this
+  package recompiled with =LSP_USE_PLISTS=true=. Byte compilation passed with
+  warnings treated as errors.
+- Separate batch Emacs/LSP processes passed both navigation projects, both
+  refactoring UI tests, the code action followed by rename, both Gradle reload
+  projects, import recovery, and Gradle and Maven debugging.
+- The live conflict test now runs instead of skipping. The server sent
+  =window/showDocument= (lsp-mode declares support) and =runEditorCommand=
+  with a =uri=.
+- Unchanged: binary-only library stubs still return an empty hover, and the
+  adapter still emits =invalidated= events.
+- Fixture notes: =--gradle-home= must be an unpacked official distribution
+  with =bin/gradle=; the Nix =gradle= package has only =bin/gradlew= there.
+  The debug Maven repository must also contain the server's own import plugin
+  dependencies (=kotlin-stdlib= 2.2.0 and =kotlinx-serialization-json= 1.9.0
+  for this server), or the offline Maven import fails.
+
 * Dependency navigation integration test
 
 Requires Python 3, JDK 17+ (javac), kotlin-lsp, lsp-mode and dap-mode.
@@ -126,7 +148,7 @@ clipboard writes disabled.
 
 A second test exercises server-held edits after Continue, Cancel and intervening
 edits. It explicitly skips if the server lacks the ShowConflicts serializer,
-as installed 263.4702.0-EAP does. It remains available for newer servers. These
+as 263.4702.0-EAP does; it runs and passes on 263.7084.0-EAP. These
 are protocol fixtures, not coverage of every Kotlin refactoring. Unit tests
 cover conflict UI lifecycle, asynchronous dispatch, cancellation, stale edits,
 location reveal, nested choices and editor-command targeting.

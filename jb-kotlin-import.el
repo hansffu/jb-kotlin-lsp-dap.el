@@ -42,7 +42,8 @@
              "Build tool selection required" "Import blocked"))
         ((jb-kotlin--import-state-failures state) "Import failed")
         (t (pcase (jb-kotlin--import-state-status state)
-             ('importing "Importing") ('ready "Ready") (_ "Import status unknown")))))
+             ('importing "Importing") ('ready "Ready") ('cancelled "Import cancelled")
+             (_ "Import status unknown")))))
 
 (defun jb-kotlin--import-context ()
   "Find the workspace for an import command, asking only if ambiguous."
@@ -153,24 +154,38 @@
           (jb-kotlin--import-state-blocked state) (append (lsp-get params :blockedFolders) nil))
     (jb-kotlin--import-updated workspace state previous)))
 
+(defun jb-kotlin--import-add-failure (workspace state failure)
+  "Record FAILURE text in WORKSPACE's STATE and its log."
+  (unless (member failure (jb-kotlin--import-state-failures state))
+    (push failure (jb-kotlin--import-state-failures state))
+    (jb-kotlin--import-append workspace state failure)))
+
 (defun jb-kotlin--import-state-notification (workspace params)
-  "Record WORKSPACE's import phase and per-folder results from PARAMS."
+  "Record WORKSPACE's import phase and per-folder results from PARAMS.
+The server sends this once per import cycle, after the cycle ends with
+phase FINISHED, FAILED or CANCELLED."
   (let* ((state (jb-kotlin--import-state workspace))
          (previous (jb-kotlin--import-label state))
-         (folders (append (lsp-get params :folders) nil)))
+         (phase (lsp-get params :phase))
+         (folders (append (lsp-get params :folders) nil))
+         (failed (cl-remove-if-not (lambda (f) (equal "FAILED" (lsp-get f :status))) folders)))
     (setf (jb-kotlin--import-state-folders state) folders)
-    (when (equal (lsp-get params :phase) "FINISHED")
-      (cond
-       ((cl-some (lambda (f) (equal "FAILED" (lsp-get f :status))) folders)
-        (dolist (folder folders)
-          (when (equal "FAILED" (lsp-get folder :status))
-            (let ((failure (format "%s: %s" (lsp-get folder :folderUri)
-                                   (or (lsp-get folder :message) "Import failed"))))
-              (cl-pushnew failure (jb-kotlin--import-state-failures state) :test #'equal)
-              (jb-kotlin--import-append workspace state failure)))))
-       ((and folders (cl-every (lambda (f) (equal "SUCCESS" (lsp-get f :status))) folders))
-        (setf (jb-kotlin--import-state-status state) 'ready
-              (jb-kotlin--import-state-failures state) nil))))
+    (pcase phase
+      ((or "FINISHED" "FAILED")
+       (cond
+        (failed
+         (dolist (folder failed)
+           (jb-kotlin--import-add-failure
+            workspace state (format "%s: %s" (lsp-get folder :folderUri)
+                                    (or (lsp-get folder :message) "Import failed")))))
+        ((equal phase "FAILED")
+         (jb-kotlin--import-add-failure workspace state "Import failed"))
+        ((and folders (cl-every (lambda (f) (equal "SUCCESS" (lsp-get f :status))) folders))
+         (setf (jb-kotlin--import-state-status state) 'ready
+               (jb-kotlin--import-state-failures state) nil))))
+      ("CANCELLED"
+       ;; A following cycle reports its start through the import log.
+       (setf (jb-kotlin--import-state-status state) 'cancelled)))
     (jb-kotlin--import-updated workspace state previous)))
 
 (defun jb-kotlin--import-initialized (workspace)

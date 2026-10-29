@@ -2,6 +2,12 @@
 
 Comparison baseline: Kotlin/kotlin-lsp commit
 =a18d1716202a742719acf30354dc01cc27b9b5e8=, reviewed 2026-09-17.
+Releases 263.6379.0 and 263.7084.0 were reviewed on 2026-10-29. Both branch
+from =eabb6619=, an ancestor of the baseline. 263.7084.0 adds eight
+cherry-picks. The only client-visible protocol change is documented
+=workspaceImportState= phases; the other changes concern the VS Code
+TCP daemon, WSL and per-version data directories. Every live test listed
+below passed against 263.7084.0-EAP on 2026-10-29.
 Standard completion, diagnostics, rename, formatting, semantic tokens, inlay
 hints and call hierarchy are delegated to lsp-mode. The items below concern
 additional client integration, not a claim that standard LSP is missing.
@@ -72,6 +78,12 @@ Gradle/Maven chooser (dismiss, reopen and select Gradle), a deliberately broken
 Gradle build, then successful retry from its log. Both status notification
 types are emitted by the installed 263.4702.0 server and handled independently.
 
+=workspaceImportState= arrives once per cycle, after it ends. A =FAILED=
+phase is reported as a failure even without failed folder results, and
+=CANCELLED= ends the Importing state until the next cycle's start log.
+In live runs on 263.7084.0, a broken Gradle build still arrived as
+=FINISHED= with a =FAILED= folder; the other phases are unit-tested only.
+
 Upstream: [[https://github.com/Kotlin/kotlin-lsp/blob/a18d1716202a742719acf30354dc01cc27b9b5e8/vscode-extension-core/src/lspClient.ts][lspClient.ts]].
 
 * 4. IntelliJ refactoring UI
@@ -91,8 +103,9 @@ Emacs/LSP processes.
 An actual =Replace 'when' with 'if'= code action also passes end to end:
 it introduces a local variable, requests rename, and updates the declaration
 and references. Editor commands wait for idle to avoid nested synchronous
-lsp-mode requests. The installed 263.4702.0-EAP predates ShowConflicts: its live conflict test is
-explicitly skipped; real-server conflict apply/cancel remains unverified.
+lsp-mode requests. 263.4702.0-EAP predates ShowConflicts and skips its live
+conflict test. Against 263.7084.0-EAP, real-server cancel, continue and
+intervening-edit decisions pass, and =runEditorCommand= carries the target URI.
 
 Upstream: [[https://github.com/Kotlin/kotlin-lsp/blob/a18d1716202a742719acf30354dc01cc27b9b5e8/vscode-extension-core/src/intellijExtensions.ts][intellijExtensions.ts]].
 
@@ -110,7 +123,8 @@ separate JVM all pass. All 70 client tests pass in both LSP data formats.
 See test/README.org for fixtures and limitations. External terminals and
 Windows wrappers remain unverified.
 
-Two issues remain visible with 263.4702.0-EAP: Gradle internalConsole can
+Two issues were visible with 263.4702.0-EAP; 263.7084.0-EAP still sends
+invalidated events, and internalConsole was not rechecked. Gradle internalConsole can
 terminate before final program stdout is delivered (use integratedTerminal),
 and the adapter sends invalidated events for asynchronously collected values.
 dap-mode does not refresh locals/watches for that event, so the live test

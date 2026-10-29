@@ -292,9 +292,10 @@ editing any file buffer, server cancellation or disconnect cancels the pending
 refactoring. Continuing rechecks buffer contents and conflict files on disk.
 Opening a source location keeps the review available.
 
-Server support varies: the installed 263.4702.0-EAP supports clipboard and
-rename notifications, but predates =intellij/showConflicts=. The client handles
-that protocol for newer servers; see [[file:test/README.org][validation details]].
+Server support varies: 263.4702.0-EAP supports clipboard and rename
+notifications, but predates =intellij/showConflicts=. Releases from 263.6379.0
+include it; conflict reviews were validated against 263.7084.0-EAP. See
+[[file:test/README.org][validation details]].
 See [[file:GAPS.org][the implementation queue]] for remaining gaps. Remote/TRAMP server
 operation and Windows build wrappers are not supported. Test explorer parity
 with the pinned VS Code extension has not been established.
@@ -334,6 +335,9 @@ emacs --batch -L . --eval '(setq byte-compile-error-on-warn t)' \
 The same checks are available as =make test= and =make compile=.  Use
 =-L /path/to/dependency= arguments if your dependencies are only made available
 by your interactive init file.  Batch Emacs does not load that init file.
+lsp-mode must be byte-compiled with the =lsp-use-plists= setting it runs with
+(=LSP_USE_PLISTS=). Otherwise its own protocol accessors return nil, and
+otherwise valid tests fail inside lsp-mode.
 Tests exercise protocol requests, code lens dispatch, JVM/Gradle field
 mapping, attach ports, and real build process exit handling.  They do not
 require a running language server or download dependencies.
@@ -368,6 +372,12 @@ formats; byte compilation passes with warnings treated as errors. Separate
 Emacs/LSP sessions against 263.4702.0-EAP pass Gradle/Maven launch.json launches,
 breakpoints, variables, stepping, evaluation, interactive noDebug runs and JVM
 attach. Fixture setup and coverage limits are in [[file:test/README.org][test/README.org]].
+
+Release revalidation on 2026-10-29 against Kotlin LSP =263.7084.0-EAP=: all
+75 unit tests pass with both LSP data formats; byte compilation passes with
+warnings treated as errors. Every live test passes in separate Emacs 30.2
+processes, including real-server conflict reviews, which older servers could
+not exercise.
 
 Prefer =integratedTerminal= for Gradle: this server sometimes ends an
 internalConsole debug session before delivering final program output.

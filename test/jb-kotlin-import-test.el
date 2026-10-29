@@ -83,6 +83,75 @@
       (should (string-match-p "Missing SDK" (buffer-string)))
       (should (next-button (point-min))))))
 
+(ert-deftest jb-kotlin-import-failed-phase-is-terminal-with-or-without-folder-results ()
+  (jb-kotlin-test--reload
+    (jb-kotlin-test--import-event workspace :started "starting")
+    (jb-kotlin--import-state-notification
+     workspace (jb-kotlin-test--object
+                ("phase" "FAILED")
+                ("folders" (vector (jb-kotlin-test--object ("folderUri" "file:///module")
+                                                         ("status" "FAILED") ("message" "Broken script"))))))
+    (let ((state (jb-kotlin--import-state workspace)))
+      (should (equal "Import failed" (jb-kotlin--import-label state)))
+      (should (equal '("file:///module: Broken script") (jb-kotlin--import-state-failures state))))
+    (jb-kotlin-test--import-event other :started "starting")
+    (jb-kotlin--import-state-notification other (jb-kotlin-test--object ("phase" "FAILED")))
+    (let ((state (jb-kotlin--import-state other)))
+      (should (equal "Import failed" (jb-kotlin--import-label state)))
+      (with-current-buffer (jb-kotlin--import-state-log state)
+        (should (string-match-p "^Import failed$" (buffer-string)))))))
+
+(ert-deftest jb-kotlin-import-failed-phase-keeps-failure-for-mixed-success-and-repeats ()
+  (jb-kotlin-test--reload
+    (let ((notify (lambda (target phase &rest folders)
+                    (jb-kotlin--import-state-notification
+                     target (jb-kotlin-test--object ("phase" phase) ("folders" (vconcat folders))))))
+          (success (jb-kotlin-test--object ("folderUri" "file:///ok") ("status" "SUCCESS")))
+          (failure (jb-kotlin-test--object ("folderUri" "file:///broken") ("status" "FAILED")
+                                           ("message" "Broken script"))))
+      (funcall notify workspace "FAILED" success)
+      (should (equal "Import failed" (jb-kotlin--import-label (jb-kotlin--import-state workspace))))
+      (funcall notify other "FAILED" success failure)
+      (funcall notify other "FINISHED" success failure)
+      (let ((state (jb-kotlin--import-state other)))
+        (should (equal "Import failed" (jb-kotlin--import-label state)))
+        (should (equal '("file:///broken: Broken script") (jb-kotlin--import-state-failures state)))
+        (with-current-buffer (jb-kotlin--import-state-log state)
+          (should (= 1 (how-many "Broken script" (point-min) (point-max)))))))))
+
+(ert-deftest jb-kotlin-import-cancelled-phase-ends-importing-until-next-cycle ()
+  (jb-kotlin-test--reload
+    (jb-kotlin-test--import-event workspace :started "starting")
+    (jb-kotlin--import-state-notification
+     workspace (jb-kotlin-test--object ("phase" "CANCELLED") ("folders" [])))
+    (should (equal "Import cancelled" (jb-kotlin--import-label (jb-kotlin--import-state workspace))))
+    (jb-kotlin-test--import-event workspace :started "restarted")
+    (should (equal "Importing" (jb-kotlin--import-label (jb-kotlin--import-state workspace))))))
+
+(ert-deftest jb-kotlin-import-cancelled-reload-cycle-recovers-on-next-cycle ()
+  (jb-kotlin-test--reload
+    (jb-kotlin--import-reloading workspace (jb-kotlin--initialization-options))
+    (should (equal "Importing" (jb-kotlin--import-label (jb-kotlin--import-state workspace))))
+    (jb-kotlin--import-state-notification workspace (jb-kotlin-test--object ("phase" "CANCELLED")))
+    (should (equal "Import cancelled" (jb-kotlin--import-label (jb-kotlin--import-state workspace))))
+    (jb-kotlin-test--import-event workspace :started "restarted")
+    (jb-kotlin--import-state-notification
+     workspace (jb-kotlin-test--object
+                ("phase" "FINISHED")
+                ("folders" (vector (jb-kotlin-test--object ("folderUri" "file:///module")
+                                                         ("status" "SUCCESS"))))))
+    (should (equal "Ready" (jb-kotlin--import-label (jb-kotlin--import-state workspace))))))
+
+(ert-deftest jb-kotlin-import-cancelled-phase-keeps-failure-and-blocked-precedence ()
+  (jb-kotlin-test--reload
+    (jb-kotlin-test--import-event workspace :failed "broken build")
+    (jb-kotlin--import-state-notification workspace (jb-kotlin-test--object ("phase" "CANCELLED")))
+    (should (equal "Import failed" (jb-kotlin--import-label (jb-kotlin--import-state workspace))))
+    (jb-kotlin--import-status-notification other (jb-kotlin-test--blocked :json-false))
+    (jb-kotlin--import-state-notification other (jb-kotlin-test--object ("phase" "CANCELLED")))
+    (should (equal "Build tool selection required"
+                   (jb-kotlin--import-label (jb-kotlin--import-state other))))))
+
 (ert-deftest jb-kotlin-import-blocked-state-is-visible-without-forcing-a-prompt ()
   (jb-kotlin-test--reload
     (cl-letf (((symbol-function 'completing-read) (lambda (&rest _) (ert-fail "Unexpected prompt"))))
